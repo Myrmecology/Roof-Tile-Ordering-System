@@ -1,126 +1,174 @@
 # ============================================================
 # ROOF TILE ORDERING SYSTEM — .gitignore
-# Security-hardened | Includes YubiKey & secrets protection
 # ============================================================
 
-# --- Dependencies ---
-node_modules/
-.pnp
-.pnp.js
-
-# --- Build Output ---
-dist/
-dist-ssr/
-build/
-out/
-
-# --- Environment & Secrets ---
+# ------------------------------------------------------------
+# ENVIRONMENT & SECRETS
+# ------------------------------------------------------------
 .env
+.env.*
 .env.local
 .env.development
-.env.development.local
-.env.test
-.env.test.local
 .env.production
-.env.production.local
-.env.*.local
+.env.staging
 *.env
-secrets.js
 secrets.json
-config.secret.*
-**/secrets/**
+secrets.yaml
+secrets.toml
+config/secrets.*
 
-# --- API Keys & Tokens ---
-*.key
+# ------------------------------------------------------------
+# YUBIKEY & HARDWARE SECURITY
+# ------------------------------------------------------------
+*.pgp
+*.gpg
+*.asc
 *.pem
 *.p12
 *.pfx
-*.cert
+*.key
 *.crt
-*.csr
+*.cer
 *.der
-api-keys.*
-auth-tokens.*
-credentials.*
-
-# --- YubiKey & Hardware Security ---
-*.ykpersonalization
-*.yubikey
-yubikey-config.*
-yk-*.conf
-gpg-keys/
-pgp-keys/
-.gnupg/
-.yubiagent/
-u2f_keys
-fido_credentials
-*.asc
-*.gpg
-*.pgp
-private-keys-v1.d/
-openpgp-revocs.d/
-
-# --- SSH Keys ---
+*.csr
 id_rsa
-id_rsa.pub
+id_rsa.*
 id_ed25519
-id_ed25519.pub
+id_ed25519.*
 id_ecdsa
-id_ecdsa.pub
+id_ecdsa.*
 *.ppk
-known_hosts
-authorized_keys
-ssh_config
+.gnupg/
+.ssh/
+yubikey-*.conf
+yubikey.conf
+ykman*
+piv-*.pem
 
-# --- OS Files ---
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
+# ------------------------------------------------------------
+# API KEYS & TOKENS
+# ------------------------------------------------------------
+*.token
+*.secret
+api_keys.*
+credentials.*
+auth.json
+token.json
+oauth*.json
+service_account*.json
 
-# --- VS Code ---
+# ------------------------------------------------------------
+# PYTHON
+# ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.hypothesis/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.virtualenv/
+Pipfile.lock
+
+# ------------------------------------------------------------
+# DATABASE
+# ------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# ------------------------------------------------------------
+# VS CODE
+# ------------------------------------------------------------
 .vscode/settings.json
 .vscode/launch.json
-.vscode/tasks.json
-.vscode/*.log
+.vscode/extensions.json
+.vscode/*.code-snippets
 .history/
+*.vsix
 
-# --- Logs ---
-logs/
-*.log
+# ------------------------------------------------------------
+# WINDOWS SYSTEM FILES
+# ------------------------------------------------------------
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+*.stackdump
+
+# ------------------------------------------------------------
+# NODE / TAILWIND BUILD ARTIFACTS
+# ------------------------------------------------------------
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# --- Testing & Coverage ---
-coverage/
-*.lcov
-.nyc_output/
-
-# --- Misc Dev Tools ---
-.cache/
+.npm
+.yarn/
+dist/
 .parcel-cache/
-.turbo/
-.eslintcache
-.stylelintcache
-*.tsbuildinfo
+.cache/
 
-# --- Local Data & Storage ---
-local-data/
-*.sqlite
-*.sqlite3
-*.db
-
-# --- Temporary Files ---
+# ------------------------------------------------------------
+# LOGS & TEMP FILES
+# ------------------------------------------------------------
+*.log
+logs/
 *.tmp
 *.temp
+*.bak
 *.swp
 *.swo
 *~
+
+# ------------------------------------------------------------
+# OS GENERAL
+# ------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
