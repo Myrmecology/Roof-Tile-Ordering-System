@@ -1,0 +1,716 @@
+{% extends "base.html" %}
+{% block title %}Inventory — Roof Tile Ordering System{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════
+     PAGE HEADER
+══════════════════════════════════════════════════ -->
+<div class="page-header">
+    <div>
+        <div class="page-title">Inventory <span>Management</span></div>
+        <div class="page-subtitle">Stock levels, reorder alerts and supply restocking</div>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-primary" onclick="openRestockModal()">
+            <i class="fas fa-cart-plus"></i> Place Restock Order
+        </button>
+        <button class="btn btn-ghost" onclick="loadInventory()">
+            <i class="fas fa-rotate"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     STAT CARDS
+══════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;">
+    <div class="stat-card">
+        <i class="fas fa-warehouse stat-icon"></i>
+        <div class="stat-label">Total SKUs</div>
+        <div class="stat-value white" id="stat-total-skus">—</div>
+        <div class="stat-sub">Active items in catalog</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-triangle-exclamation stat-icon"></i>
+        <div class="stat-label">Low Stock Items</div>
+        <div class="stat-value red" id="stat-low-stock">—</div>
+        <div class="stat-sub">At or below reorder point</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-fire stat-icon"></i>
+        <div class="stat-label">Top Seller</div>
+        <div class="stat-value" id="stat-top-seller"
+             style="font-size:1rem;padding-top:4px;color:var(--amber);">—</div>
+        <div class="stat-sub" id="stat-top-seller-units">— units sold</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-chart-line stat-icon"></i>
+        <div class="stat-label">Total Inventory Value</div>
+        <div class="stat-value" id="stat-inv-value">—</div>
+        <div class="stat-sub">At sell price</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FILTER & CATEGORY TABS
+══════════════════════════════════════════════════ -->
+<div class="panel" style="margin-bottom:1rem;">
+    <div class="panel-body" style="padding:0.75rem 1.25rem;
+         display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <span style="font-family:var(--font-mono);font-size:0.62rem;
+              letter-spacing:0.12em;text-transform:uppercase;
+              color:var(--steel-dim);">Category:</span>
+        <button class="btn btn-primary btn-sm cat-btn active"
+                data-cat="all" onclick="setCategory('all')">All</button>
+        <button class="btn btn-ghost btn-sm cat-btn"
+                data-cat="shingles" onclick="setCategory('shingles')">
+            <i class="fas fa-layer-group"></i> Shingles
+        </button>
+        <button class="btn btn-ghost btn-sm cat-btn"
+                data-cat="tar" onclick="setCategory('tar')">
+            <i class="fas fa-droplet"></i> Tar
+        </button>
+        <button class="btn btn-ghost btn-sm cat-btn"
+                data-cat="gloves" onclick="setCategory('gloves')">
+            <i class="fas fa-hand"></i> Gloves
+        </button>
+        <button class="btn btn-ghost btn-sm cat-btn"
+                data-cat="underlayment" onclick="setCategory('underlayment')">
+            <i class="fas fa-scroll"></i> Underlayment
+        </button>
+        <button class="btn btn-ghost btn-sm cat-btn"
+                data-cat="nails" onclick="setCategory('nails')">
+            <i class="fas fa-thumbtack"></i> Nails
+        </button>
+        <button class="btn btn-ghost btn-sm cat-btn"
+                data-cat="tools" onclick="setCategory('tools')">
+            <i class="fas fa-screwdriver-wrench"></i> Tools
+        </button>
+
+        <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem;">
+            <span style="font-family:var(--font-mono);font-size:0.62rem;
+                  color:var(--steel-dim);">SHOW:</span>
+            <button class="btn btn-ghost btn-sm" onclick="setStockFilter('all')"
+                    id="show-all-btn">All Stock</button>
+            <button class="btn btn-ghost btn-sm" onclick="setStockFilter('low')"
+                    id="show-low-btn">
+                <i class="fas fa-triangle-exclamation"></i> Low Only
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     INVENTORY TABLE
+══════════════════════════════════════════════════ -->
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">
+            <i class="fas fa-boxes-stacked" style="margin-right:6px;"></i>
+            Stock Levels
+        </div>
+        <span class="mono text-dim" style="font-size:0.65rem;"
+              id="inv-count-label">Loading...</span>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>Item Name</th>
+                    <th>Category</th>
+                    <th>Unit</th>
+                    <th>In Stock</th>
+                    <th>Reorder At</th>
+                    <th>Cost Price</th>
+                    <th>Sell Price</th>
+                    <th>Margin</th>
+                    <th>Units Sold</th>
+                    <th>Revenue</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="inventory-table-body">
+                <tr>
+                    <td colspan="13">
+                        <div class="empty-state">
+                            <div class="spinner"></div>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     RESTOCK ORDER MODAL
+══════════════════════════════════════════════════ -->
+<div id="restock-modal"
+     style="display:none;position:fixed;inset:0;z-index:500;
+            background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
+            align-items:center;justify-content:center;">
+    <div style="background:var(--bg-panel);border:1px solid var(--amber-border);
+                border-radius:4px;width:680px;max-width:95vw;
+                max-height:85vh;overflow-y:auto;position:relative;">
+
+        <div style="height:2px;background:linear-gradient(90deg,
+             var(--amber-dim),var(--amber),transparent);"></div>
+
+        <div style="padding:1.25rem;border-bottom:1px solid var(--border-dim);
+                    display:flex;align-items:center;justify-content:space-between;">
+            <div class="panel-title">
+                <i class="fas fa-cart-plus" style="margin-right:6px;"></i>
+                Place Restock Order
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="closeRestockModal()">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+
+        <div style="padding:1.25rem;">
+            <!-- Budget display -->
+            <div style="background:var(--bg-lift);border:1px solid var(--border-dim);
+                        border-radius:3px;padding:0.75rem 1rem;margin-bottom:1rem;
+                        display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-family:var(--font-mono);font-size:0.65rem;
+                      letter-spacing:0.1em;text-transform:uppercase;
+                      color:var(--steel-dim);">Available Budget</span>
+                <span style="font-family:var(--font-display);font-size:1.3rem;
+                      font-weight:900;color:var(--success);"
+                      id="restock-budget">Loading...</span>
+            </div>
+
+            <!-- Low stock quick-add -->
+            <div style="margin-bottom:1rem;">
+                <div style="font-family:var(--font-mono);font-size:0.62rem;
+                     letter-spacing:0.12em;text-transform:uppercase;
+                     color:var(--steel-dim);margin-bottom:0.5rem;">
+                    Quick Add — Low Stock Items
+                </div>
+                <div id="quick-add-items" style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+                    <span class="mono text-dim" style="font-size:0.7rem;">
+                        Loading low stock items...
+                    </span>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Restock items list -->
+            <div style="font-family:var(--font-mono);font-size:0.62rem;
+                 letter-spacing:0.12em;text-transform:uppercase;
+                 color:var(--steel-dim);margin-bottom:0.5rem;">
+                Restock Items
+            </div>
+
+            <div id="restock-items-list"
+                 style="display:flex;flex-direction:column;gap:0.5rem;
+                        margin-bottom:1rem;min-height:60px;">
+                <div class="empty-state" style="padding:1rem;">
+                    <div class="empty-state-text">
+                        Add items below or use Quick Add above
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add item row -->
+            <div style="display:grid;grid-template-columns:1fr auto auto auto;
+                        gap:0.5rem;align-items:center;margin-bottom:0.75rem;">
+                <select id="restock-item-select"
+                    style="background:var(--bg-lift);
+                           border:1px solid var(--border-mid);
+                           color:var(--steel-bright);
+                           font-family:var(--font-mono);
+                           font-size:0.72rem;padding:6px 10px;
+                           border-radius:3px;cursor:pointer;">
+                    <option value="">— Select Item to Restock —</option>
+                </select>
+                <input type="number" id="restock-qty" placeholder="Qty"
+                       min="1" value="50"
+                       style="background:var(--bg-lift);
+                              border:1px solid var(--border-mid);
+                              color:var(--steel-bright);
+                              font-family:var(--font-mono);
+                              font-size:0.72rem;padding:6px 10px;
+                              border-radius:3px;width:80px;" />
+                <span id="restock-unit-cost"
+                      style="font-family:var(--font-mono);font-size:0.72rem;
+                             color:var(--steel-dim);white-space:nowrap;">
+                    @ $—/unit
+                </span>
+                <button class="btn btn-primary btn-sm" onclick="addRestockItem()">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Order total -->
+            <div style="display:flex;justify-content:space-between;
+                        align-items:center;margin-bottom:1rem;">
+                <span style="font-family:var(--font-mono);font-size:0.65rem;
+                      letter-spacing:0.1em;text-transform:uppercase;
+                      color:var(--steel-dim);">Restock Order Total</span>
+                <span style="font-family:var(--font-display);font-size:1.4rem;
+                      font-weight:900;color:var(--hazard);"
+                      id="restock-total">$0.00</span>
+            </div>
+
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+                <button class="btn btn-ghost" onclick="closeRestockModal()">
+                    Cancel
+                </button>
+                <button class="btn btn-primary" onclick="submitRestock()"
+                        id="submit-restock-btn">
+                    <i class="fas fa-cart-plus"></i> Submit Restock Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// ═══════════════════════════════════════════════════════
+// INVENTORY PAGE JAVASCRIPT
+// ═══════════════════════════════════════════════════════
+
+let allInventory   = [];
+let filteredInv    = [];
+let currentCat     = 'all';
+let stockFilter    = 'all';
+let restockItems   = [];
+let budgetBalance  = 0;
+
+const fmt$  = v => `$${parseFloat(v||0).toLocaleString('en-US',
+    {minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmtN  = v => parseInt(v||0).toLocaleString();
+
+// ── Load inventory ───────────────────────────────────
+async function loadInventory() {
+    try {
+        const res      = await fetch('/api/inventory/?limit=200');
+        allInventory   = await res.json();
+        applyFilters();
+        updateStats();
+    } catch(e) { console.error('Inventory load error:', e); }
+}
+
+// ── Update stat cards ─────────────────────────────────
+function updateStats() {
+    const lowStock = allInventory.filter(
+        i => i.quantity <= i.reorder_point
+    );
+    const topSeller = [...allInventory].sort(
+        (a,b) => b.total_sold - a.total_sold
+    )[0];
+    const totalValue = allInventory.reduce(
+        (sum, i) => sum + (i.quantity * i.sell_price), 0
+    );
+
+    document.getElementById('stat-total-skus').textContent =
+        fmtN(allInventory.length);
+    document.getElementById('stat-low-stock').textContent =
+        fmtN(lowStock.length);
+    document.getElementById('stat-inv-value').textContent =
+        fmt$(totalValue);
+
+    if (topSeller) {
+        document.getElementById('stat-top-seller').textContent =
+            topSeller.name;
+        document.getElementById('stat-top-seller-units').textContent =
+            `${fmtN(topSeller.total_sold)} units sold`;
+    }
+}
+
+// ── Category filter ───────────────────────────────────
+function setCategory(cat) {
+    currentCat = cat;
+    document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.className = btn.dataset.cat === cat
+            ? 'btn btn-primary btn-sm cat-btn active'
+            : 'btn btn-ghost btn-sm cat-btn';
+    });
+    applyFilters();
+}
+
+// ── Stock filter ──────────────────────────────────────
+function setStockFilter(filter) {
+    stockFilter = filter;
+    document.getElementById('show-all-btn').className =
+        filter === 'all'
+            ? 'btn btn-primary btn-sm'
+            : 'btn btn-ghost btn-sm';
+    document.getElementById('show-low-btn').className =
+        filter === 'low'
+            ? 'btn btn-primary btn-sm'
+            : 'btn btn-ghost btn-sm';
+    applyFilters();
+}
+
+function applyFilters() {
+    filteredInv = allInventory.filter(item => {
+        const catMatch  = currentCat === 'all' || item.category === currentCat;
+        const stockMatch = stockFilter === 'all'
+            || (stockFilter === 'low' && item.quantity <= item.reorder_point);
+        return catMatch && stockMatch;
+    });
+    renderInventoryTable();
+}
+
+// ── Render table ──────────────────────────────────────
+function renderInventoryTable() {
+    const body = document.getElementById('inventory-table-body');
+    document.getElementById('inv-count-label').textContent =
+        `${filteredInv.length} item(s)`;
+
+    if (!filteredInv.length) {
+        body.innerHTML = `
+            <tr><td colspan="13">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-box-open"></i>
+                    </div>
+                    <div class="empty-state-text">No items found</div>
+                </div>
+            </td></tr>`;
+        return;
+    }
+
+    body.innerHTML = filteredInv.map(item => {
+        const isLow    = item.quantity <= item.reorder_point;
+        const isCrit   = item.quantity <= 5;
+        const margin   = item.sell_price > 0
+            ? (((item.sell_price - item.cost_price) / item.sell_price) * 100).toFixed(1)
+            : '0.0';
+
+        const stockColor = isCrit
+            ? 'var(--hazard)'
+            : isLow
+                ? 'var(--amber)'
+                : 'var(--success)';
+
+        const statusBadge = isCrit
+            ? `<span class="badge badge-low-stock low-stock-pulse">Critical</span>`
+            : isLow
+                ? `<span class="badge badge-low-stock">Low Stock</span>`
+                : `<span class="badge badge-ok">In Stock</span>`;
+
+        const catColors = {
+            shingles:     '#60A5FA',
+            tar:          '#A78BFA',
+            gloves:       '#34D399',
+            underlayment: '#F472B6',
+            nails:        '#FBBF24',
+            tools:        '#94A3B8'
+        };
+        const catColor = catColors[item.category] || 'var(--steel)';
+
+        return `
+        <tr id="inv-row-${item.id}">
+            <td class="mono" style="font-size:0.68rem;color:var(--steel-dim);">
+                ${item.sku}
+            </td>
+            <td>
+                <div style="font-size:0.82rem;font-weight:600;
+                            color:var(--steel-bright);">${item.name}</div>
+            </td>
+            <td>
+                <span style="font-family:var(--font-mono);font-size:0.6rem;
+                      letter-spacing:0.1em;text-transform:uppercase;
+                      color:${catColor};background:${catColor}18;
+                      padding:2px 7px;border-radius:2px;
+                      border:1px solid ${catColor}40;">
+                    ${item.category}
+                </span>
+            </td>
+            <td class="mono text-dim" style="font-size:0.72rem;">${item.unit}</td>
+            <td>
+                <span style="font-family:var(--font-display);font-size:1.1rem;
+                      font-weight:800;color:${stockColor};">
+                    ${fmtN(item.quantity)}
+                </span>
+            </td>
+            <td class="mono text-dim" style="font-size:0.72rem;">
+                ${fmtN(item.reorder_point)}
+            </td>
+            <td class="mono" style="font-size:0.78rem;color:var(--steel);">
+                ${fmt$(item.cost_price)}
+            </td>
+            <td class="mono" style="font-size:0.78rem;color:var(--amber);">
+                ${fmt$(item.sell_price)}
+            </td>
+            <td class="mono" style="font-size:0.78rem;color:var(--success);">
+                ${margin}%
+            </td>
+            <td class="mono" style="font-size:0.78rem;color:var(--steel-bright);">
+                ${fmtN(item.total_sold)}
+            </td>
+            <td class="mono" style="font-size:0.78rem;color:var(--success);">
+                ${fmt$(item.total_revenue)}
+            </td>
+            <td>${statusBadge}</td>
+            <td>
+                <button class="btn btn-ghost btn-sm"
+                        onclick="quickRestock(${item.id},'${item.name}',
+                                 ${item.cost_price},'${item.unit}')">
+                    <i class="fas fa-cart-plus"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// RESTOCK MODAL
+// ══════════════════════════════════════════════════════
+async function openRestockModal() {
+    restockItems = [];
+    renderRestockItems();
+    updateRestockTotal();
+
+    // Load budget
+    try {
+        const res  = await fetch('/api/analytics/budget');
+        const data = await res.json();
+        budgetBalance = data.balance;
+        document.getElementById('restock-budget').textContent = fmt$(data.balance);
+    } catch(e) {}
+
+    // Load low stock for quick add
+    try {
+        const res  = await fetch('/api/inventory/alerts/low-stock');
+        const low  = await res.json();
+        const container = document.getElementById('quick-add-items');
+        if (!low.length) {
+            container.innerHTML = `
+                <span class="mono text-dim" style="font-size:0.7rem;">
+                    No low stock items
+                </span>`;
+        } else {
+            container.innerHTML = low.map(item => `
+                <button class="btn btn-ghost btn-sm"
+                        onclick="quickRestock(${item.id},'${item.name}',
+                                 ${item.cost_price},'${item.unit}')"
+                        style="font-size:0.65rem;">
+                    <i class="fas fa-plus"></i>
+                    ${item.name}
+                    <span style="color:var(--hazard);margin-left:3px;">
+                        (${item.quantity} left)
+                    </span>
+                </button>`).join('');
+        }
+    } catch(e) {}
+
+    // Populate item select
+    const select = document.getElementById('restock-item-select');
+    select.innerHTML = '<option value="">— Select Item to Restock —</option>'
+        + allInventory.map(i =>
+            `<option value="${i.id}" data-cost="${i.cost_price}"
+                     data-unit="${i.unit}">${i.name} (${i.sku})</option>`
+        ).join('');
+
+    // Show unit cost on select change
+    select.onchange = () => {
+        const opt = select.options[select.selectedIndex];
+        const cost = opt.dataset.cost || 0;
+        document.getElementById('restock-unit-cost').textContent =
+            cost > 0 ? `@ ${fmt$(cost)}/unit` : '@ $—/unit';
+    };
+
+    document.getElementById('restock-modal').style.display = 'flex';
+}
+
+function closeRestockModal() {
+    document.getElementById('restock-modal').style.display = 'none';
+}
+
+function quickRestock(id, name, cost, unit) {
+    const existing = restockItems.find(i => i.inventory_item_id === id);
+    if (existing) {
+        existing.quantity_ordered += 50;
+    } else {
+        restockItems.push({
+            inventory_item_id: id,
+            name, unit,
+            quantity_ordered:  50,
+            unit_cost: cost
+        });
+    }
+    renderRestockItems();
+    updateRestockTotal();
+    document.getElementById('restock-modal').style.display = 'flex';
+}
+
+function addRestockItem() {
+    const select = document.getElementById('restock-item-select');
+    const qty    = parseInt(document.getElementById('restock-qty').value) || 50;
+    const opt    = select.options[select.selectedIndex];
+
+    if (!opt.value) {
+        showToast('order_cancelled', 'Select an Item',
+                  'Please select an item to add.');
+        return;
+    }
+
+    const id   = parseInt(opt.value);
+    const cost = parseFloat(opt.dataset.cost) || 0;
+    const unit = opt.dataset.unit || '';
+    const name = opt.text.split(' (')[0];
+
+    const existing = restockItems.find(i => i.inventory_item_id === id);
+    if (existing) {
+        existing.quantity_ordered += qty;
+    } else {
+        restockItems.push({
+            inventory_item_id: id,
+            name, unit,
+            quantity_ordered: qty,
+            unit_cost: cost
+        });
+    }
+
+    select.value = '';
+    document.getElementById('restock-unit-cost').textContent = '@ $—/unit';
+    renderRestockItems();
+    updateRestockTotal();
+}
+
+function removeRestockItem(idx) {
+    restockItems.splice(idx, 1);
+    renderRestockItems();
+    updateRestockTotal();
+}
+
+function renderRestockItems() {
+    const list = document.getElementById('restock-items-list');
+    if (!restockItems.length) {
+        list.innerHTML = `
+            <div class="empty-state" style="padding:1rem;">
+                <div class="empty-state-text">
+                    Add items below or use Quick Add above
+                </div>
+            </div>`;
+        return;
+    }
+    list.innerHTML = restockItems.map((item, i) => `
+        <div style="display:grid;grid-template-columns:1fr auto auto auto;
+                    gap:0.75rem;align-items:center;
+                    background:var(--bg-lift);
+                    border:1px solid var(--border-dim);
+                    border-radius:3px;padding:0.6rem 0.85rem;">
+            <div>
+                <div style="font-size:0.82rem;font-weight:600;
+                            color:var(--steel-bright);">${item.name}</div>
+                <div class="mono text-dim" style="font-size:0.62rem;">
+                    ${fmt$(item.unit_cost)}/unit
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.4rem;">
+                <button class="btn btn-ghost btn-sm" style="padding:2px 6px;"
+                        onclick="changeRestockQty(${i},-10)">−</button>
+                <span class="mono" style="font-size:0.82rem;
+                      color:var(--amber);min-width:40px;text-align:center;">
+                    ${item.quantity_ordered}
+                </span>
+                <button class="btn btn-ghost btn-sm" style="padding:2px 6px;"
+                        onclick="changeRestockQty(${i},10)">+</button>
+            </div>
+            <span class="mono" style="font-size:0.82rem;color:var(--success);">
+                ${fmt$(item.quantity_ordered * item.unit_cost)}
+            </span>
+            <button class="btn btn-danger btn-sm"
+                    onclick="removeRestockItem(${i})">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>`).join('');
+}
+
+function changeRestockQty(idx, delta) {
+    restockItems[idx].quantity_ordered =
+        Math.max(1, restockItems[idx].quantity_ordered + delta);
+    renderRestockItems();
+    updateRestockTotal();
+}
+
+function updateRestockTotal() {
+    const total = restockItems.reduce(
+        (sum, i) => sum + (i.quantity_ordered * i.unit_cost), 0
+    );
+    const el = document.getElementById('restock-total');
+    el.textContent = fmt$(total);
+    el.style.color = total > budgetBalance
+        ? 'var(--hazard)'
+        : 'var(--amber-bright)';
+}
+
+async function submitRestock() {
+    if (!restockItems.length) {
+        showToast('order_cancelled', 'Empty Order',
+                  'Add at least one item to restock.');
+        return;
+    }
+
+    const total = restockItems.reduce(
+        (sum, i) => sum + (i.quantity_ordered * i.unit_cost), 0
+    );
+    if (total > budgetBalance) {
+        showToast('order_cancelled', 'Insufficient Budget',
+                  `Need ${fmt$(total)} — Available ${fmt$(budgetBalance)}`);
+        return;
+    }
+
+    const btn = document.getElementById('submit-restock-btn');
+    btn.disabled  = true;
+    btn.innerHTML = `<div class="spinner"></div> Submitting...`;
+
+    try {
+        const payload = {
+            items: restockItems.map(i => ({
+                inventory_item_id: i.inventory_item_id,
+                quantity_ordered:  i.quantity_ordered,
+                unit_cost:         i.unit_cost
+            }))
+        };
+
+        const res = await fetch('/api/inventory/restock', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            showToast('order_cancelled', 'Restock Failed',
+                      err.detail || 'Unknown error.');
+        } else {
+            closeRestockModal();
+            loadInventory();
+        }
+    } catch(e) {
+        showToast('order_cancelled', 'Error', 'Request failed.');
+    }
+
+    btn.disabled  = false;
+    btn.innerHTML = `<i class="fas fa-cart-plus"></i> Submit Restock Order`;
+}
+
+// ── WebSocket hooks ──────────────────────────────────
+function onLowStock()       { loadInventory(); }
+function onRestockPlaced()  { loadInventory(); }
+function onOrderFulfilled() { loadInventory(); }
+
+// ── Auto-refresh every 20s ───────────────────────────
+setInterval(loadInventory, 20000);
+
+// ── Boot ─────────────────────────────────────────────
+loadInventory();
+</script>
+{% endblock %}

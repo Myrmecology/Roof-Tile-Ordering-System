@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Roof Tile Ordering System{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════
+     PAGE HEADER
+══════════════════════════════════════════════════ -->
+<div class="page-header">
+    <div>
+        <div class="page-title">Operations <span>Dashboard</span></div>
+        <div class="page-subtitle">Real-time roofing supply distribution control</div>
+    </div>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+        <a href="/orders" class="btn btn-primary">
+            <i class="fas fa-boxes-stacked"></i> Manage Orders
+        </a>
+        <a href="/inventory" class="btn btn-ghost">
+            <i class="fas fa-warehouse"></i> Inventory
+        </a>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     STAT CARDS ROW
+══════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;">
+
+    <div class="stat-card">
+        <i class="fas fa-wallet stat-icon"></i>
+        <div class="stat-label">Available Balance</div>
+        <div class="stat-value green" id="stat-balance">$—</div>
+        <div class="stat-sub" id="stat-earned">Total Earned: $—</div>
+    </div>
+
+    <div class="stat-card">
+        <i class="fas fa-clock stat-icon"></i>
+        <div class="stat-label">Pending Orders</div>
+        <div class="stat-value white" id="stat-pending">—</div>
+        <div class="stat-sub">Awaiting fulfillment</div>
+    </div>
+
+    <div class="stat-card">
+        <i class="fas fa-circle-check stat-icon"></i>
+        <div class="stat-label">Fulfilled Today</div>
+        <div class="stat-value" id="stat-fulfilled-today">—</div>
+        <div class="stat-sub" id="stat-profit">Net Profit: $—</div>
+    </div>
+
+    <div class="stat-card">
+        <i class="fas fa-triangle-exclamation stat-icon"></i>
+        <div class="stat-label">Low Stock Alerts</div>
+        <div class="stat-value red" id="stat-low-stock">—</div>
+        <div class="stat-sub" id="stat-customers">Customers: —</div>
+    </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MAIN GRID — LIVE ORDERS + INVENTORY SNAPSHOT
+══════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:1fr 380px;gap:1rem;margin-bottom:1rem;">
+
+    <!-- LIVE ORDER FEED -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-satellite-dish" style="margin-right:6px;"></i>
+                Live Incoming Orders
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <div class="live-badge">
+                    <div class="live-dot"></div> Streaming
+                </div>
+                <span class="badge badge-pending" id="live-order-count">0 Pending</span>
+            </div>
+        </div>
+        <div class="panel-body" style="padding:0.75rem;max-height:420px;overflow-y:auto;" id="live-orders-feed">
+            <div class="empty-state">
+                <div class="empty-state-icon"><i class="fas fa-satellite-dish"></i></div>
+                <div class="empty-state-text">Awaiting incoming orders...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+
+        <!-- BUDGET PANEL -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fas fa-chart-pie" style="margin-right:6px;"></i>
+                    Budget Overview
+                </div>
+            </div>
+            <div class="panel-body" style="padding:1rem;">
+                <div style="margin-bottom:0.85rem;">
+                    <div class="stat-label">Cash Balance</div>
+                    <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:900;color:var(--success);" id="budget-balance">$—</div>
+                </div>
+                <div class="divider"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                    <div>
+                        <div class="stat-label">Total Earned</div>
+                        <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:800;color:var(--amber);" id="budget-earned">$—</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Spent</div>
+                        <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:800;color:var(--hazard);" id="budget-spent">$—</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Net Profit</div>
+                        <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:800;color:var(--success);" id="budget-profit">$—</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Margin</div>
+                        <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:800;color:var(--steel-bright);" id="budget-margin">—%</div>
+                    </div>
+                </div>
+                <div class="divider"></div>
+                <a href="/analytics" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:0.72rem;">
+                    <i class="fas fa-chart-line"></i> Full Analytics
+                </a>
+            </div>
+        </div>
+
+        <!-- QUICK RESTOCK -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fas fa-triangle-exclamation" style="margin-right:6px;color:var(--hazard);"></i>
+                    Low Stock Alerts
+                </div>
+                <a href="/inventory" class="btn btn-ghost btn-sm">View All</a>
+            </div>
+            <div id="low-stock-list" style="max-height:180px;overflow-y:auto;">
+                <div class="empty-state" style="padding:1.5rem;">
+                    <div class="empty-state-icon" style="font-size:1.5rem;"><i class="fas fa-check-circle"></i></div>
+                    <div class="empty-state-text">All stock levels OK</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     BOTTOM GRID — RECENT CUSTOMERS + TOP SELLERS
+══════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+    <!-- RECENT CUSTOMERS -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-building-user" style="margin-right:6px;"></i>
+                Recent Customers
+            </div>
+            <a href="/customers" class="btn btn-ghost btn-sm">View All</a>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Type</th>
+                        <th>Orders</th>
+                        <th>Total Spent</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-customers-body">
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state" style="padding:1rem;">
+                                <div class="empty-state-text">Loading customers...</div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TOP SELLERS -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-fire" style="margin-right:6px;"></i>
+                Top Selling Items
+            </div>
+            <a href="/analytics" class="btn btn-ghost btn-sm">Analytics</a>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Units Sold</th>
+                        <th>Revenue</th>
+                    </tr>
+                </thead>
+                <tbody id="top-sellers-body">
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state" style="padding:1rem;">
+                                <div class="empty-state-text">Loading sellers...</div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// ═══════════════════════════════════════════════════════
+// DASHBOARD JAVASCRIPT
+// ═══════════════════════════════════════════════════════
+
+let pendingOrders = [];
+
+// ── Format helpers ───────────────────────────────────
+const fmt$ = v => `$${parseFloat(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmtN = v => parseInt(v||0).toLocaleString();
+
+// ── Load dashboard summary stats ─────────────────────
+async function loadDashboard() {
+    try {
+        const res  = await fetch('/api/analytics/dashboard');
+        const data = await res.json();
+
+        document.getElementById('stat-balance').textContent       = fmt$(data.balance);
+        document.getElementById('stat-earned').textContent        = `Total Earned: ${fmt$(data.total_earned)}`;
+        document.getElementById('stat-pending').textContent       = fmtN(data.pending_orders);
+        document.getElementById('stat-fulfilled-today').textContent = fmtN(data.fulfilled_today);
+        document.getElementById('stat-profit').textContent        = `Net Profit: ${fmt$(data.total_profit)}`;
+        document.getElementById('stat-low-stock').textContent     = fmtN(data.low_stock_items);
+        document.getElementById('stat-customers').textContent     = `Customers: ${fmtN(data.total_customers)}`;
+
+        document.getElementById('budget-balance').textContent = fmt$(data.balance);
+        document.getElementById('budget-earned').textContent  = fmt$(data.total_earned);
+        document.getElementById('budget-spent').textContent   = fmt$(data.total_spent);
+        document.getElementById('budget-profit').textContent  = fmt$(data.total_profit);
+
+        const margin = data.total_earned > 0
+            ? ((data.total_profit / data.total_earned) * 100).toFixed(1)
+            : '0.0';
+        document.getElementById('budget-margin').textContent = `${margin}%`;
+
+        updatePendingBadge(data.pending_orders);
+        document.getElementById('live-order-count').textContent = `${data.pending_orders} Pending`;
+
+    } catch(e) { console.error('Dashboard load error:', e); }
+}
+
+// ── Load pending orders into live feed ───────────────
+async function loadPendingOrders() {
+    try {
+        const res    = await fetch('/api/orders/status/pending');
+        pendingOrders = await res.json();
+        renderOrderFeed(pendingOrders);
+    } catch(e) { console.error('Orders load error:', e); }
+}
+
+function renderOrderFeed(orders) {
+    const feed = document.getElementById('live-orders-feed');
+    if (!orders.length) {
+        feed.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon"><i class="fas fa-check-double"></i></div>
+                <div class="empty-state-text">All orders fulfilled — great work</div>
+            </div>`;
+        return;
+    }
+
+    feed.innerHTML = orders.map(o => {
+        const items = o.items?.map(i =>
+            `<span style="color:var(--steel-dim);">
+                ${i.quantity_ordered} × ${i.inventory_item?.name || 'Item'}
+            </span>`
+        ).join(' &nbsp;·&nbsp; ') || '';
+
+        const custType = o.customer?.customer_type === 'company'
+            ? `<span class="badge badge-company">Company</span>`
+            : `<span class="badge badge-individual">Individual</span>`;
+
+        return `
+        <div class="order-card" id="order-card-${o.id}" style="margin-bottom:0.6rem;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.4rem;gap:0.5rem;">
+                <div>
+                    <span class="mono text-amber" style="font-size:0.78rem;font-weight:700;">${o.order_number}</span>
+                    &nbsp;${custType}
+                </div>
+                <span style="font-family:var(--font-display);font-size:1rem;font-weight:800;color:var(--amber-bright);white-space:nowrap;">
+                    ${fmt$(o.total_amount)}
+                </span>
+            </div>
+            <div style="font-size:0.78rem;font-weight:600;color:var(--steel-bright);margin-bottom:0.35rem;">
+                ${o.customer?.company_name || o.customer?.name || 'Unknown Customer'}
+            </div>
+            <div style="font-size:0.72rem;line-height:1.7;margin-bottom:0.5rem;display:flex;flex-wrap:wrap;gap:4px;">
+                ${items}
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+                <button class="btn btn-success btn-sm" onclick="fulfillOrder(${o.id})">
+                    <i class="fas fa-check"></i> Fulfill
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})">
+                    <i class="fas fa-xmark"></i> Cancel
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Fulfill order ────────────────────────────────────
+async function fulfillOrder(id) {
+    try {
+        const res = await fetch(`/api/orders/${id}/fulfill`, { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            showToast('order_cancelled', 'Fulfill Failed', err.detail || 'Unknown error');
+            return;
+        }
+        const card = document.getElementById(`order-card-${id}`);
+        if (card) {
+            card.style.borderLeftColor = 'var(--success)';
+            card.style.opacity = '0.5';
+            card.style.transition = 'all 0.4s ease';
+            setTimeout(() => card.remove(), 400);
+        }
+        loadDashboard();
+        loadTopSellers();
+    } catch(e) { console.error('Fulfill error:', e); }
+}
+
+// ── Cancel order ─────────────────────────────────────
+async function cancelOrder(id) {
+    try {
+        const res = await fetch(`/api/orders/${id}/cancel`, { method: 'POST' });
+        if (!res.ok) return;
+        const card = document.getElementById(`order-card-${id}`);
+        if (card) {
+            card.style.borderLeftColor = 'var(--hazard)';
+            card.style.opacity = '0.5';
+            card.style.transition = 'all 0.4s ease';
+            setTimeout(() => card.remove(), 400);
+        }
+        loadDashboard();
+    } catch(e) { console.error('Cancel error:', e); }
+}
+
+// ── Load recent customers ────────────────────────────
+async function loadRecentCustomers() {
+    try {
+        const res  = await fetch('/api/customers/?limit=8');
+        const data = await res.json();
+        const body = document.getElementById('recent-customers-body');
+
+        if (!data.length) {
+            body.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:1rem;"><div class="empty-state-text">No customers yet</div></div></td></tr>`;
+            return;
+        }
+
+        body.innerHTML = data.map(c => `
+            <tr>
+                <td>
+                    <div style="font-size:0.82rem;font-weight:600;color:var(--steel-bright);">
+                        ${c.company_name || c.name}
+                    </div>
+                    <div style="font-size:0.68rem;color:var(--steel-dim);">${c.name}</div>
+                </td>
+                <td>
+                    ${c.customer_type === 'company'
+                        ? `<span class="badge badge-company">Company</span>`
+                        : `<span class="badge badge-individual">Individual</span>`}
+                </td>
+                <td class="mono">${c.order_count}</td>
+                <td class="mono text-amber">${fmt$(c.total_spent)}</td>
+            </tr>`).join('');
+    } catch(e) { console.error('Customers load error:', e); }
+}
+
+// ── Load top sellers ─────────────────────────────────
+async function loadTopSellers() {
+    try {
+        const res  = await fetch('/api/inventory/stats/top-sellers?limit=8');
+        const data = await res.json();
+        const body = document.getElementById('top-sellers-body');
+
+        if (!data.length) {
+            body.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:1rem;"><div class="empty-state-text">No sales data yet</div></div></td></tr>`;
+            return;
+        }
+
+        body.innerHTML = data.map((item, i) => `
+            <tr>
+                <td class="mono text-dim" style="font-size:0.7rem;">${String(i+1).padStart(2,'0')}</td>
+                <td>
+                    <div style="font-size:0.82rem;font-weight:600;color:var(--steel-bright);">${item.name}</div>
+                    <div class="mono text-dim" style="font-size:0.62rem;">${item.sku}</div>
+                </td>
+                <td class="mono text-amber">${fmtN(item.total_sold)}</td>
+                <td class="mono text-success">${fmt$(item.total_revenue)}</td>
+            </tr>`).join('');
+    } catch(e) { console.error('Top sellers load error:', e); }
+}
+
+// ── Load low stock items ─────────────────────────────
+async function loadLowStock() {
+    try {
+        const res  = await fetch('/api/inventory/alerts/low-stock');
+        const data = await res.json();
+        const list = document.getElementById('low-stock-list');
+
+        if (!data.length) {
+            list.innerHTML = `
+                <div class="empty-state" style="padding:1.5rem;">
+                    <div class="empty-state-icon" style="font-size:1.5rem;"><i class="fas fa-check-circle"></i></div>
+                    <div class="empty-state-text">All stock levels OK</div>
+                </div>`;
+            return;
+        }
+
+        list.innerHTML = data.map(item => `
+            <div style="display:flex;align-items:center;justify-content:space-between;
+                        padding:0.6rem 1.25rem;border-bottom:1px solid var(--border-dim);">
+                <div>
+                    <div style="font-size:0.8rem;font-weight:600;color:var(--steel-bright);">
+                        ${item.name}
+                    </div>
+                    <div class="mono text-dim" style="font-size:0.62rem;">${item.sku}</div>
+                </div>
+                <span class="badge badge-low-stock low-stock-pulse">
+                    ${item.quantity} left
+                </span>
+            </div>`).join('');
+    } catch(e) { console.error('Low stock load error:', e); }
+}
+
+// ── WebSocket hooks ──────────────────────────────────
+function onNewOrder(payload) {
+    loadPendingOrders();
+    loadDashboard();
+}
+
+function onOrderFulfilled(payload) {
+    loadPendingOrders();
+    loadDashboard();
+    loadTopSellers();
+}
+
+function onOrderCancelled(payload) {
+    loadPendingOrders();
+    loadDashboard();
+}
+
+function onBudgetUpdate(payload) {
+    document.getElementById('stat-balance').textContent   = fmt$(payload.balance);
+    document.getElementById('budget-balance').textContent = fmt$(payload.balance);
+    document.getElementById('budget-earned').textContent  = fmt$(payload.total_earned);
+    document.getElementById('budget-profit').textContent  = fmt$(payload.total_profit);
+}
+
+function onLowStock(payload) {
+    loadLowStock();
+    loadDashboard();
+}
+
+// ── Auto-refresh every 30s ───────────────────────────
+setInterval(() => {
+    loadDashboard();
+    loadRecentCustomers();
+    loadTopSellers();
+    loadLowStock();
+}, 30000);
+
+// ── Initial load ─────────────────────────────────────
+loadDashboard();
+loadPendingOrders();
+loadRecentCustomers();
+loadTopSellers();
+loadLowStock();
+</script>
+{% endblock %}

@@ -1,0 +1,732 @@
+{% extends "base.html" %}
+{% block title %}Analytics — Roof Tile Ordering System{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════
+     PAGE HEADER
+══════════════════════════════════════════════════ -->
+<div class="page-header">
+    <div>
+        <div class="page-title">Business <span>Analytics</span></div>
+        <div class="page-subtitle">Revenue, profit margins, sales trends and performance</div>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-ghost" onclick="loadAll()">
+            <i class="fas fa-rotate"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     STAT CARDS
+══════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);
+            gap:1rem;margin-bottom:1.5rem;">
+    <div class="stat-card">
+        <i class="fas fa-dollar-sign stat-icon"></i>
+        <div class="stat-label">Total Revenue</div>
+        <div class="stat-value" id="stat-revenue">—</div>
+        <div class="stat-sub">All fulfilled orders</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-chart-line stat-icon"></i>
+        <div class="stat-label">Net Profit</div>
+        <div class="stat-value green" id="stat-profit">—</div>
+        <div class="stat-sub" id="stat-margin-sub">Margin: —%</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-receipt stat-icon"></i>
+        <div class="stat-label">Total Orders</div>
+        <div class="stat-value white" id="stat-orders">—</div>
+        <div class="stat-sub" id="stat-fulfilled-sub">— fulfilled</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-wallet stat-icon"></i>
+        <div class="stat-label">Cash Balance</div>
+        <div class="stat-value green" id="stat-balance">—</div>
+        <div class="stat-sub" id="stat-spent-sub">Spent on restock: $—</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     ROW 1 — REVENUE BY CATEGORY + DAILY VOLUME
+══════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;
+            gap:1rem;margin-bottom:1rem;">
+
+    <!-- Revenue by Category -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-chart-pie" style="margin-right:6px;"></i>
+                Revenue by Category
+            </div>
+        </div>
+        <div class="panel-body" style="padding:1.25rem;">
+            <div style="position:relative;height:260px;
+                        display:flex;align-items:center;
+                        justify-content:center;">
+                <canvas id="category-chart"></canvas>
+                <div id="category-empty"
+                     class="empty-state"
+                     style="display:none;position:absolute;">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <div class="empty-state-text">No sales data yet</div>
+                </div>
+            </div>
+            <div id="category-legend"
+                 style="display:flex;flex-wrap:wrap;gap:0.5rem;
+                        margin-top:0.75rem;justify-content:center;">
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Order Volume -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-chart-bar" style="margin-right:6px;"></i>
+                Daily Order Volume
+            </div>
+            <div style="display:flex;gap:0.4rem;">
+                <button class="btn btn-ghost btn-sm day-btn active"
+                        data-days="7" onclick="loadDailyVolume(7)">7D</button>
+                <button class="btn btn-ghost btn-sm day-btn"
+                        data-days="14" onclick="loadDailyVolume(14)">14D</button>
+                <button class="btn btn-ghost btn-sm day-btn"
+                        data-days="30" onclick="loadDailyVolume(30)">30D</button>
+            </div>
+        </div>
+        <div class="panel-body" style="padding:1.25rem;">
+            <div style="position:relative;height:260px;">
+                <canvas id="volume-chart"></canvas>
+                <div id="volume-empty"
+                     class="empty-state"
+                     style="display:none;position:absolute;
+                            inset:0;align-items:center;
+                            justify-content:center;">
+                    <div>
+                        <div class="empty-state-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="empty-state-text">No data yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     ROW 2 — PROFIT MARGINS + TOP vs SLOWEST
+══════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;
+            gap:1rem;margin-bottom:1rem;">
+
+    <!-- Profit Margin by Item -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-percent" style="margin-right:6px;"></i>
+                Profit Margin by Item
+            </div>
+        </div>
+        <div class="panel-body" style="padding:1rem;">
+            <div style="position:relative;height:280px;overflow-y:auto;">
+                <div id="margin-bars">
+                    <div class="empty-state" style="padding:2rem;">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top vs Slowest Sellers -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-arrow-trend-up" style="margin-right:6px;"></i>
+                Top vs Slowest Sellers
+            </div>
+        </div>
+        <div class="panel-body" style="padding:1.25rem;">
+            <div style="position:relative;height:280px;">
+                <canvas id="sellers-chart"></canvas>
+                <div id="sellers-empty"
+                     class="empty-state"
+                     style="display:none;position:absolute;
+                            inset:0;align-items:center;
+                            justify-content:center;">
+                    <div>
+                        <div class="empty-state-icon">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                        <div class="empty-state-text">No sales data yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     ROW 3 — TRANSACTION HISTORY
+══════════════════════════════════════════════════ -->
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">
+            <i class="fas fa-clock-rotate-left" style="margin-right:6px;"></i>
+            Transaction History
+        </div>
+        <span class="mono text-dim" style="font-size:0.65rem;"
+              id="tx-count-label">Loading...</span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Balance After</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="tx-table-body">
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="spinner"></div>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// ═══════════════════════════════════════════════════════
+// ANALYTICS PAGE JAVASCRIPT
+// ═══════════════════════════════════════════════════════
+
+// Chart instances
+let categoryChart = null;
+let volumeChart   = null;
+let sellersChart  = null;
+
+const fmt$  = v => `$${parseFloat(v||0).toLocaleString('en-US',
+    {minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmtN  = v => parseInt(v||0).toLocaleString();
+const fmtDT = s => s
+    ? new Date(s).toLocaleString('en-US',
+        {month:'short',day:'numeric',
+         hour:'2-digit',minute:'2-digit'})
+    : '—';
+
+// ── Chart defaults ────────────────────────────────────
+Chart.defaults.color          = '#64748B';
+Chart.defaults.borderColor    = 'rgba(148,163,184,0.08)';
+Chart.defaults.font.family    = "'Share Tech Mono', monospace";
+Chart.defaults.font.size      = 11;
+
+// ── Category colors ───────────────────────────────────
+const CAT_COLORS = {
+    shingles:     '#F59E0B',
+    tar:          '#A78BFA',
+    gloves:       '#34D399',
+    underlayment: '#F472B6',
+    nails:        '#FBBF24',
+    tools:        '#60A5FA'
+};
+
+// ══════════════════════════════════════════════════════
+// LOAD ALL DATA
+// ══════════════════════════════════════════════════════
+async function loadAll() {
+    await Promise.all([
+        loadSummary(),
+        loadCategoryChart(),
+        loadDailyVolume(7),
+        loadMarginBars(),
+        loadSellersChart(),
+        loadTransactions()
+    ]);
+}
+
+// ── Summary stats ─────────────────────────────────────
+async function loadSummary() {
+    try {
+        const [summaryRes, budgetRes] = await Promise.all([
+            fetch('/api/analytics/summary'),
+            fetch('/api/analytics/budget')
+        ]);
+        const summary = await summaryRes.json();
+        const budget  = await budgetRes.json();
+
+        document.getElementById('stat-revenue').textContent =
+            fmt$(summary.total_revenue);
+        document.getElementById('stat-profit').textContent =
+            fmt$(summary.total_profit);
+        document.getElementById('stat-orders').textContent =
+            fmtN(summary.total_orders);
+        document.getElementById('stat-balance').textContent =
+            fmt$(budget.balance);
+        document.getElementById('stat-fulfilled-sub').textContent =
+            `${fmtN(summary.fulfilled_orders)} fulfilled`;
+        document.getElementById('stat-spent-sub').textContent =
+            `Spent on restock: ${fmt$(budget.total_spent)}`;
+
+        const margin = summary.total_revenue > 0
+            ? ((summary.total_profit / summary.total_revenue) * 100).toFixed(1)
+            : '0.0';
+        document.getElementById('stat-margin-sub').textContent =
+            `Margin: ${margin}%`;
+    } catch(e) { console.error('Summary error:', e); }
+}
+
+// ── Revenue by category doughnut ──────────────────────
+async function loadCategoryChart() {
+    try {
+        const res  = await fetch('/api/analytics/revenue-by-category');
+        const data = await res.json();
+
+        const hasData = data.some(d => d.total_revenue > 0);
+        document.getElementById('category-empty').style.display =
+            hasData ? 'none' : 'block';
+
+        if (!hasData) return;
+
+        const labels   = data.map(d => d.category.toUpperCase());
+        const values   = data.map(d => d.total_revenue);
+        const colors   = data.map(d =>
+            CAT_COLORS[d.category] || '#94A3B8'
+        );
+
+        if (categoryChart) categoryChart.destroy();
+
+        categoryChart = new Chart(
+            document.getElementById('category-chart'),
+            {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors.map(c => c + 'CC'),
+                        borderColor:     colors,
+                        borderWidth:     2,
+                        hoverOffset:     8
+                    }]
+                },
+                options: {
+                    responsive:          true,
+                    maintainAspectRatio: false,
+                    cutout:              '65%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx =>
+                                    ` ${ctx.label}: ${fmt$(ctx.raw)}`
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        // Custom legend
+        const legend = document.getElementById('category-legend');
+        legend.innerHTML = data.map(d => `
+            <div style="display:flex;align-items:center;gap:5px;
+                        font-family:var(--font-mono);font-size:0.6rem;
+                        letter-spacing:0.08em;text-transform:uppercase;
+                        color:var(--steel);">
+                <div style="width:8px;height:8px;border-radius:1px;
+                     background:${CAT_COLORS[d.category] || '#94A3B8'};
+                     flex-shrink:0;"></div>
+                ${d.category} &nbsp;
+                <span style="color:var(--amber);">${fmt$(d.total_revenue)}</span>
+            </div>`).join('');
+    } catch(e) { console.error('Category chart error:', e); }
+}
+
+// ── Daily volume bar chart ────────────────────────────
+async function loadDailyVolume(days = 7) {
+    // Update active button
+    document.querySelectorAll('.day-btn').forEach(btn => {
+        btn.className = parseInt(btn.dataset.days) === days
+            ? 'btn btn-primary btn-sm day-btn active'
+            : 'btn btn-ghost btn-sm day-btn';
+    });
+
+    try {
+        const res  = await fetch(`/api/analytics/daily-volume?days=${days}`);
+        const data = await res.json();
+
+        const hasData = data.length > 0;
+        const emptyEl = document.getElementById('volume-empty');
+        emptyEl.style.display = hasData ? 'none' : 'flex';
+
+        if (!hasData) return;
+
+        // Reverse so oldest is on left
+        const sorted = [...data].reverse();
+        const labels = sorted.map(d =>
+            new Date(d.date).toLocaleDateString('en-US',
+                {month:'short',day:'numeric'})
+        );
+        const counts   = sorted.map(d => d.order_count);
+        const revenues = sorted.map(d => d.revenue);
+
+        if (volumeChart) volumeChart.destroy();
+
+        volumeChart = new Chart(
+            document.getElementById('volume-chart'),
+            {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label:           'Orders',
+                            data:            counts,
+                            backgroundColor: 'rgba(245,158,11,0.7)',
+                            borderColor:     '#F59E0B',
+                            borderWidth:     1,
+                            borderRadius:    2,
+                            yAxisID:         'y'
+                        },
+                        {
+                            label:           'Revenue',
+                            data:            revenues,
+                            type:            'line',
+                            borderColor:     '#34D399',
+                            backgroundColor: 'rgba(52,211,153,0.1)',
+                            borderWidth:     2,
+                            pointRadius:     3,
+                            pointBackgroundColor: '#34D399',
+                            tension:         0.4,
+                            fill:            true,
+                            yAxisID:         'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive:          true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode:      'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display:  true,
+                            position: 'top',
+                            labels: {
+                                color:     '#94A3B8',
+                                boxWidth:  10,
+                                boxHeight: 10,
+                                padding:   16
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ctx.dataset.label === 'Revenue'
+                                    ? ` Revenue: ${fmt$(ctx.raw)}`
+                                    : ` Orders: ${ctx.raw}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(148,163,184,0.06)'
+                            },
+                            ticks: { color: '#475569' }
+                        },
+                        y: {
+                            position: 'left',
+                            grid:     { color: 'rgba(148,163,184,0.06)' },
+                            ticks:    { color: '#475569', stepSize: 1 }
+                        },
+                        y1: {
+                            position: 'right',
+                            grid:     { drawOnChartArea: false },
+                            ticks: {
+                                color:    '#34D399',
+                                callback: v => `$${(v/1000).toFixed(1)}k`
+                            }
+                        }
+                    }
+                }
+            }
+        );
+    } catch(e) { console.error('Volume chart error:', e); }
+}
+
+// ── Profit margin bars ────────────────────────────────
+async function loadMarginBars() {
+    try {
+        const res  = await fetch('/api/analytics/profit-margins');
+        const data = await res.json();
+        const el   = document.getElementById('margin-bars');
+
+        if (!data.length) {
+            el.innerHTML = `
+                <div class="empty-state" style="padding:2rem;">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-percent"></i>
+                    </div>
+                    <div class="empty-state-text">
+                        No sales data yet
+                    </div>
+                </div>`;
+            return;
+        }
+
+        const maxMargin = Math.max(...data.map(d => d.margin_pct), 1);
+
+        el.innerHTML = data.map(item => {
+            const pct   = item.margin_pct;
+            const width = ((pct / maxMargin) * 100).toFixed(1);
+            const color = pct >= 40
+                ? 'var(--success)'
+                : pct >= 25
+                    ? 'var(--amber)'
+                    : 'var(--hazard)';
+
+            return `
+            <div style="margin-bottom:0.6rem;">
+                <div style="display:flex;justify-content:space-between;
+                            align-items:center;margin-bottom:3px;">
+                    <div>
+                        <span style="font-size:0.75rem;font-weight:600;
+                              color:var(--steel-bright);">${item.item_name}</span>
+                        <span class="mono text-dim"
+                              style="font-size:0.6rem;margin-left:6px;">
+                            ${item.sku}
+                        </span>
+                    </div>
+                    <span style="font-family:var(--font-display);
+                          font-size:0.9rem;font-weight:800;color:${color};">
+                        ${pct}%
+                    </span>
+                </div>
+                <div style="height:5px;background:var(--bg-lift);
+                            border-radius:2px;overflow:hidden;">
+                    <div style="height:100%;width:${width}%;
+                                background:${color};
+                                border-radius:2px;
+                                transition:width 0.6s ease;
+                                box-shadow:0 0 6px ${color}40;">
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;
+                            margin-top:2px;">
+                    <span class="mono text-dim" style="font-size:0.58rem;">
+                        Revenue: ${fmt$(item.total_revenue)}
+                    </span>
+                    <span class="mono text-dim" style="font-size:0.58rem;">
+                        Profit: ${fmt$(item.total_profit)}
+                    </span>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) { console.error('Margin bars error:', e); }
+}
+
+// ── Top vs Slowest sellers bar chart ─────────────────
+async function loadSellersChart() {
+    try {
+        const res     = await fetch('/api/analytics/summary');
+        const summary = await res.json();
+
+        const top     = summary.top_sellers    || [];
+        const slowest = summary.slowest_sellers || [];
+
+        const hasData = top.some(i => i.total_sold > 0);
+        const emptyEl = document.getElementById('sellers-empty');
+        emptyEl.style.display = hasData ? 'none' : 'flex';
+
+        if (!hasData) return;
+
+        // Combine unique items
+        const allItems = [...top];
+        slowest.forEach(s => {
+            if (!allItems.find(t => t.sku === s.sku)) allItems.push(s);
+        });
+
+        const labels = allItems.map(i =>
+            i.item_name.length > 18
+                ? i.item_name.substring(0, 16) + '…'
+                : i.item_name
+        );
+        const units    = allItems.map(i => i.total_sold || 0);
+        const revenues = allItems.map(i => i.total_revenue || 0);
+        const colors   = allItems.map(i =>
+            top.find(t => t.sku === i.sku)
+                ? 'rgba(245,158,11,0.8)'
+                : 'rgba(100,116,139,0.5)'
+        );
+
+        if (sellersChart) sellersChart.destroy();
+
+        sellersChart = new Chart(
+            document.getElementById('sellers-chart'),
+            {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label:           'Units Sold',
+                        data:            units,
+                        backgroundColor: colors,
+                        borderColor:     colors.map(c =>
+                            c.replace('0.8','1').replace('0.5','0.8')
+                        ),
+                        borderWidth:  1,
+                        borderRadius: 2
+                    }]
+                },
+                options: {
+                    indexAxis:           'y',
+                    responsive:          true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx =>
+                                    ` ${ctx.raw} units sold`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid:  { color: 'rgba(148,163,184,0.06)' },
+                            ticks: { color: '#475569' }
+                        },
+                        y: {
+                            grid:  { display: false },
+                            ticks: {
+                                color:    '#94A3B8',
+                                font:     { size: 10 }
+                            }
+                        }
+                    }
+                }
+            }
+        );
+    } catch(e) { console.error('Sellers chart error:', e); }
+}
+
+// ── Transaction history ───────────────────────────────
+async function loadTransactions() {
+    try {
+        const res  = await fetch('/api/analytics/transactions?limit=50');
+        const data = await res.json();
+        const body = document.getElementById('tx-table-body');
+
+        document.getElementById('tx-count-label').textContent =
+            `${data.length} transaction${data.length !== 1 ? 's' : ''}`;
+
+        if (!data.length) {
+            body.innerHTML = `
+                <tr><td colspan="6">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="empty-state-text">
+                            No transactions yet
+                        </div>
+                    </div>
+                </td></tr>`;
+            return;
+        }
+
+        body.innerHTML = data.map((tx, i) => {
+            const isSale    = tx.transaction_type === 'sale';
+            const isRestock = tx.transaction_type === 'restock';
+            const isProfit  = tx.transaction_type === 'profit';
+
+            const typeTag = isSale
+                ? `<span class="badge badge-fulfilled">Sale</span>`
+                : isRestock
+                    ? `<span class="badge"
+                            style="color:#60A5FA;background:rgba(96,165,250,0.1);
+                                   border-color:#60A5FA;">Restock</span>`
+                    : `<span class="badge badge-pending">Profit</span>`;
+
+            const amtColor = isSale || isProfit
+                ? 'var(--success)'
+                : 'var(--hazard)';
+            const amtPrefix = isRestock ? '−' : '+';
+
+            return `
+            <tr>
+                <td class="mono text-dim"
+                    style="font-size:0.68rem;">
+                    ${String(i + 1).padStart(3,'0')}
+                </td>
+                <td>${typeTag}</td>
+                <td style="font-size:0.8rem;color:var(--steel-bright);
+                           max-width:280px;overflow:hidden;
+                           text-overflow:ellipsis;white-space:nowrap;">
+                    ${tx.description || '—'}
+                </td>
+                <td class="mono"
+                    style="font-size:0.82rem;font-weight:700;
+                           color:${amtColor};">
+                    ${amtPrefix}${fmt$(tx.amount)}
+                </td>
+                <td class="mono"
+                    style="font-size:0.78rem;color:var(--steel);">
+                    ${fmt$(tx.balance_after)}
+                </td>
+                <td class="mono text-dim"
+                    style="font-size:0.68rem;">
+                    ${fmtDT(tx.created_at)}
+                </td>
+            </tr>`;
+        }).join('');
+    } catch(e) { console.error('Transactions error:', e); }
+}
+
+// ── WebSocket hooks ───────────────────────────────────
+function onOrderFulfilled() {
+    loadSummary();
+    loadTransactions();
+    loadCategoryChart();
+    loadSellersChart();
+    loadMarginBars();
+}
+
+function onRestockPlaced() {
+    loadSummary();
+    loadTransactions();
+}
+
+function onBudgetUpdate(payload) {
+    document.getElementById('stat-balance').textContent =
+        fmt$(payload.balance);
+}
+
+// ── Auto-refresh every 30s ────────────────────────────
+setInterval(loadAll, 30000);
+
+// ── Boot ──────────────────────────────────────────────
+loadAll();
+</script>
+{% endblock %}

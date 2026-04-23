@@ -1,0 +1,607 @@
+{% extends "base.html" %}
+{% block title %}Customers — Roof Tile Ordering System{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════
+     PAGE HEADER
+══════════════════════════════════════════════════ -->
+<div class="page-header">
+    <div>
+        <div class="page-title">Customer <span>History</span></div>
+        <div class="page-subtitle">All fictional clients — companies and individuals</div>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-ghost" onclick="loadCustomers()">
+            <i class="fas fa-rotate"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     STAT CARDS
+══════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);
+            gap:1rem;margin-bottom:1.5rem;">
+    <div class="stat-card">
+        <i class="fas fa-users stat-icon"></i>
+        <div class="stat-label">Total Customers</div>
+        <div class="stat-value white" id="stat-total">—</div>
+        <div class="stat-sub">All time</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-building stat-icon"></i>
+        <div class="stat-label">Companies</div>
+        <div class="stat-value" id="stat-companies">—</div>
+        <div class="stat-sub">Business accounts</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-person stat-icon"></i>
+        <div class="stat-label">Individuals</div>
+        <div class="stat-value" id="stat-individuals">—</div>
+        <div class="stat-sub">Personal accounts</div>
+    </div>
+    <div class="stat-card">
+        <i class="fas fa-trophy stat-icon"></i>
+        <div class="stat-label">Top Spender</div>
+        <div class="stat-value"
+             style="font-size:1rem;padding-top:4px;color:var(--amber);"
+             id="stat-top-spender">—</div>
+        <div class="stat-sub" id="stat-top-spender-amount">$—</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FILTER BAR
+══════════════════════════════════════════════════ -->
+<div class="panel" style="margin-bottom:1rem;">
+    <div class="panel-body"
+         style="padding:0.75rem 1.25rem;display:flex;
+                align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <span style="font-family:var(--font-mono);font-size:0.62rem;
+              letter-spacing:0.12em;text-transform:uppercase;
+              color:var(--steel-dim);">Filter:</span>
+        <button class="btn btn-primary btn-sm type-btn active"
+                data-type="all" onclick="setTypeFilter('all')">All</button>
+        <button class="btn btn-ghost btn-sm type-btn"
+                data-type="company" onclick="setTypeFilter('company')">
+            <i class="fas fa-building"></i> Companies
+        </button>
+        <button class="btn btn-ghost btn-sm type-btn"
+                data-type="individual" onclick="setTypeFilter('individual')">
+            <i class="fas fa-person"></i> Individuals
+        </button>
+
+        <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem;">
+            <span style="font-family:var(--font-mono);font-size:0.62rem;
+                  color:var(--steel-dim);">SORT:</span>
+            <select id="customer-sort"
+                    onchange="applySortAndRender()"
+                style="background:var(--bg-lift);
+                       border:1px solid var(--border-mid);
+                       color:var(--steel-bright);
+                       font-family:var(--font-mono);
+                       font-size:0.68rem;padding:4px 8px;
+                       border-radius:3px;cursor:pointer;">
+                <option value="newest">Newest First</option>
+                <option value="spent">Highest Spend</option>
+                <option value="orders">Most Orders</option>
+                <option value="name">Name A–Z</option>
+            </select>
+
+            <input type="text" id="customer-search"
+                   placeholder="Search name or company..."
+                   oninput="applySearch()"
+                style="background:var(--bg-lift);
+                       border:1px solid var(--border-mid);
+                       color:var(--steel-bright);
+                       font-family:var(--font-mono);
+                       font-size:0.68rem;padding:4px 10px;
+                       border-radius:3px;width:200px;"
+            />
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     CUSTOMER TABLE
+══════════════════════════════════════════════════ -->
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">
+            <i class="fas fa-address-book" style="margin-right:6px;"></i>
+            Customer Registry
+        </div>
+        <span class="mono text-dim" style="font-size:0.65rem;"
+              id="customer-count-label">Loading...</span>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name / Company</th>
+                    <th>Type</th>
+                    <th>Location</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Orders</th>
+                    <th>Total Spent</th>
+                    <th>Member Since</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="customer-table-body">
+                <tr>
+                    <td colspan="10">
+                        <div class="empty-state">
+                            <div class="spinner"></div>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--border-dim);
+                display:flex;align-items:center;justify-content:space-between;">
+        <span class="mono text-dim" style="font-size:0.62rem;"
+              id="cust-pagination-info">—</span>
+        <div style="display:flex;gap:0.5rem;">
+            <button class="btn btn-ghost btn-sm"
+                    id="cust-btn-prev" onclick="changePage(-1)" disabled>
+                <i class="fas fa-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-ghost btn-sm"
+                    id="cust-btn-next" onclick="changePage(1)">
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     CUSTOMER DETAIL MODAL
+══════════════════════════════════════════════════ -->
+<div id="customer-modal"
+     style="display:none;position:fixed;inset:0;z-index:500;
+            background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
+            align-items:center;justify-content:center;">
+    <div style="background:var(--bg-panel);
+                border:1px solid var(--amber-border);
+                border-radius:4px;width:680px;max-width:95vw;
+                max-height:85vh;overflow-y:auto;position:relative;">
+
+        <div style="height:2px;background:linear-gradient(90deg,
+             var(--amber-dim),var(--amber),transparent);"></div>
+
+        <div style="padding:1.25rem;border-bottom:1px solid var(--border-dim);
+                    display:flex;align-items:center;justify-content:space-between;">
+            <div class="panel-title">
+                <i class="fas fa-id-card" style="margin-right:6px;"></i>
+                Customer Profile
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="closeModal()">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+
+        <div id="modal-content" style="padding:1.25rem;">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// ═══════════════════════════════════════════════════════
+// CUSTOMERS PAGE JAVASCRIPT
+// ═══════════════════════════════════════════════════════
+
+let allCustomers      = [];
+let filteredCustomers = [];
+let currentTypeFilter = 'all';
+let currentPage       = 0;
+const PAGE_SIZE       = 25;
+
+const fmt$  = v => `$${parseFloat(v||0).toLocaleString('en-US',
+    {minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmtN  = v => parseInt(v||0).toLocaleString();
+const fmtDT = s => s
+    ? new Date(s).toLocaleDateString('en-US',
+        {month:'short',day:'numeric',year:'numeric'})
+    : '—';
+
+// ── Load all customers ───────────────────────────────
+async function loadCustomers() {
+    try {
+        const res      = await fetch('/api/customers/?limit=500');
+        allCustomers   = await res.json();
+        applyFilters();
+        loadSummary();
+    } catch(e) { console.error('Customers load error:', e); }
+}
+
+// ── Load summary stats ───────────────────────────────
+async function loadSummary() {
+    try {
+        const res  = await fetch('/api/customers/stats/summary');
+        const data = await res.json();
+
+        document.getElementById('stat-total').textContent =
+            fmtN(data.total_customers);
+        document.getElementById('stat-companies').textContent =
+            fmtN(data.total_companies);
+        document.getElementById('stat-individuals').textContent =
+            fmtN(data.total_individuals);
+
+        if (data.top_spenders?.length) {
+            const top = data.top_spenders[0];
+            document.getElementById('stat-top-spender').textContent =
+                top.company_name || top.name;
+            document.getElementById('stat-top-spender-amount').textContent =
+                fmt$(top.total_spent);
+        }
+    } catch(e) { console.error('Summary load error:', e); }
+}
+
+// ── Type filter ───────────────────────────────────────
+function setTypeFilter(type) {
+    currentTypeFilter = type;
+    currentPage       = 0;
+
+    document.querySelectorAll('.type-btn').forEach(btn => {
+        btn.className = btn.dataset.type === type
+            ? 'btn btn-primary btn-sm type-btn active'
+            : 'btn btn-ghost btn-sm type-btn';
+    });
+
+    applyFilters();
+}
+
+// ── Search ────────────────────────────────────────────
+function applySearch() {
+    currentPage = 0;
+    applyFilters();
+}
+
+function applyFilters() {
+    const search = document.getElementById('customer-search')
+        .value.toLowerCase().trim();
+
+    filteredCustomers = allCustomers.filter(c => {
+        const typeMatch = currentTypeFilter === 'all'
+            || c.customer_type === currentTypeFilter;
+        const searchMatch = !search
+            || c.name?.toLowerCase().includes(search)
+            || c.company_name?.toLowerCase().includes(search)
+            || c.email?.toLowerCase().includes(search)
+            || c.city?.toLowerCase().includes(search);
+        return typeMatch && searchMatch;
+    });
+
+    applySortAndRender();
+}
+
+function applySortAndRender() {
+    const sort = document.getElementById('customer-sort').value;
+    filteredCustomers.sort((a, b) => {
+        switch(sort) {
+            case 'newest':  return new Date(b.created_at) - new Date(a.created_at);
+            case 'spent':   return b.total_spent - a.total_spent;
+            case 'orders':  return b.order_count - a.order_count;
+            case 'name':
+                const na = (a.company_name || a.name || '').toLowerCase();
+                const nb = (b.company_name || b.name || '').toLowerCase();
+                return na.localeCompare(nb);
+            default: return 0;
+        }
+    });
+    renderTable();
+}
+
+// ── Render table ──────────────────────────────────────
+function renderTable() {
+    const body  = document.getElementById('customer-table-body');
+    const total = filteredCustomers.length;
+    const start = currentPage * PAGE_SIZE;
+    const end   = Math.min(start + PAGE_SIZE, total);
+    const page  = filteredCustomers.slice(start, end);
+
+    document.getElementById('customer-count-label').textContent =
+        `${total} customer${total !== 1 ? 's' : ''}`;
+    document.getElementById('cust-pagination-info').textContent =
+        total ? `Showing ${start+1}–${end} of ${total}` : 'No customers';
+    document.getElementById('cust-btn-prev').disabled = currentPage === 0;
+    document.getElementById('cust-btn-next').disabled = end >= total;
+
+    if (!page.length) {
+        body.innerHTML = `
+            <tr><td colspan="10">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-users-slash"></i>
+                    </div>
+                    <div class="empty-state-text">No customers found</div>
+                </div>
+            </td></tr>`;
+        return;
+    }
+
+    body.innerHTML = page.map((c, i) => {
+        const typeBadge = c.customer_type === 'company'
+            ? `<span class="badge badge-company">Company</span>`
+            : `<span class="badge badge-individual">Individual</span>`;
+
+        const spendColor = c.total_spent > 5000
+            ? 'var(--amber-bright)'
+            : c.total_spent > 1000
+                ? 'var(--amber)'
+                : 'var(--steel-bright)';
+
+        const location = [c.city, c.state]
+            .filter(Boolean).join(', ') || '—';
+
+        return `
+        <tr style="cursor:pointer;" onclick="viewCustomer(${c.id})"
+            id="cust-row-${c.id}">
+            <td class="mono text-dim" style="font-size:0.68rem;">
+                ${String(start + i + 1).padStart(3,'0')}
+            </td>
+            <td>
+                <div style="font-size:0.85rem;font-weight:700;
+                            color:var(--steel-bright);">
+                    ${c.company_name || c.name}
+                </div>
+                ${c.company_name
+                    ? `<div style="font-size:0.68rem;color:var(--steel-dim);">
+                           ${c.name}
+                       </div>`
+                    : ''}
+            </td>
+            <td>${typeBadge}</td>
+            <td class="mono text-dim" style="font-size:0.72rem;">
+                ${location}
+            </td>
+            <td class="mono text-dim" style="font-size:0.68rem;
+                max-width:160px;overflow:hidden;text-overflow:ellipsis;
+                white-space:nowrap;">
+                ${c.email || '—'}
+            </td>
+            <td class="mono text-dim" style="font-size:0.7rem;">
+                ${c.phone || '—'}
+            </td>
+            <td>
+                <span style="font-family:var(--font-display);font-size:1.1rem;
+                      font-weight:800;color:var(--steel-bright);">
+                    ${fmtN(c.order_count)}
+                </span>
+            </td>
+            <td>
+                <span style="font-family:var(--font-display);font-size:1rem;
+                      font-weight:800;color:${spendColor};">
+                    ${fmt$(c.total_spent)}
+                </span>
+            </td>
+            <td class="mono text-dim" style="font-size:0.68rem;">
+                ${fmtDT(c.created_at)}
+            </td>
+            <td>
+                <button class="btn btn-ghost btn-sm"
+                        onclick="event.stopPropagation();viewCustomer(${c.id})">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// ── Pagination ────────────────────────────────────────
+function changePage(dir) {
+    const maxPage = Math.ceil(filteredCustomers.length / PAGE_SIZE) - 1;
+    currentPage   = Math.max(0, Math.min(currentPage + dir, maxPage));
+    renderTable();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Customer detail modal ─────────────────────────────
+async function viewCustomer(id) {
+    try {
+        const [custRes, ordersRes] = await Promise.all([
+            fetch(`/api/customers/${id}`),
+            fetch(`/api/customers/${id}/orders`)
+        ]);
+        const customer = await custRes.json();
+        const orders   = await ordersRes.json();
+
+        const modal   = document.getElementById('customer-modal');
+        const content = document.getElementById('modal-content');
+
+        const recentOrders = orders.slice(0, 8).map(o => `
+            <tr>
+                <td style="padding:0.45rem 0.75rem;"
+                    class="mono text-amber" style="font-size:0.75rem;">
+                    ${o.order_number}
+                </td>
+                <td style="padding:0.45rem 0.75rem;">
+                    ${ {
+                        pending:   `<span class="badge badge-pending">Pending</span>`,
+                        fulfilled: `<span class="badge badge-fulfilled">Fulfilled</span>`,
+                        cancelled: `<span class="badge badge-cancelled">Cancelled</span>`
+                    }[o.status] || o.status }
+                </td>
+                <td style="padding:0.45rem 0.75rem;"
+                    class="mono" style="color:var(--amber-bright);">
+                    ${fmt$(o.total_amount)}
+                </td>
+                <td style="padding:0.45rem 0.75rem;"
+                    class="mono text-dim" style="font-size:0.68rem;">
+                    ${o.created_at
+                        ? new Date(o.created_at).toLocaleDateString('en-US',
+                            {month:'short',day:'numeric',year:'numeric'})
+                        : '—'}
+                </td>
+                <td style="padding:0.45rem 0.75rem;"
+                    class="mono text-dim" style="font-size:0.68rem;">
+                    ${o.items?.length || 0} item(s)
+                </td>
+            </tr>`).join('');
+
+        const typeBadge = customer.customer_type === 'company'
+            ? `<span class="badge badge-company">Company</span>`
+            : `<span class="badge badge-individual">Individual</span>`;
+
+        content.innerHTML = `
+            <!-- Profile header -->
+            <div style="display:flex;align-items:flex-start;
+                        gap:1.25rem;margin-bottom:1.25rem;">
+                <div style="width:52px;height:52px;border-radius:4px;
+                            background:var(--amber-glow);
+                            border:1px solid var(--amber-border);
+                            display:flex;align-items:center;
+                            justify-content:center;flex-shrink:0;">
+                    <i class="fas ${customer.customer_type === 'company'
+                        ? 'fa-building'
+                        : 'fa-person'}"
+                       style="font-size:1.4rem;color:var(--amber);"></i>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-family:var(--font-display);font-size:1.4rem;
+                                font-weight:900;color:var(--steel-bright);
+                                line-height:1.1;">
+                        ${customer.company_name || customer.name}
+                    </div>
+                    ${customer.company_name
+                        ? `<div style="font-size:0.8rem;color:var(--steel-dim);
+                                       margin-top:2px;">${customer.name}</div>`
+                        : ''}
+                    <div style="margin-top:6px;">${typeBadge}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="stat-label">Total Spent</div>
+                    <div style="font-family:var(--font-display);font-size:1.6rem;
+                                font-weight:900;color:var(--amber-bright);">
+                        ${fmt$(customer.total_spent)}
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Contact grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;
+                        gap:1rem;margin-bottom:1.25rem;">
+                <div>
+                    <div class="stat-label">Email</div>
+                    <div class="mono" style="font-size:0.72rem;
+                         color:var(--steel-bright);word-break:break-all;">
+                        ${customer.email || '—'}
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-label">Phone</div>
+                    <div class="mono" style="font-size:0.72rem;
+                         color:var(--steel-bright);">
+                        ${customer.phone || '—'}
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-label">Location</div>
+                    <div class="mono" style="font-size:0.72rem;
+                         color:var(--steel-bright);">
+                        ${[customer.city, customer.state]
+                            .filter(Boolean).join(', ') || '—'}
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-label">Total Orders</div>
+                    <div style="font-family:var(--font-display);font-size:1.3rem;
+                                font-weight:900;color:var(--steel-bright);">
+                        ${fmtN(customer.order_count)}
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-label">Address</div>
+                    <div class="mono" style="font-size:0.72rem;
+                         color:var(--steel-bright);">
+                        ${customer.address || '—'}
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-label">Member Since</div>
+                    <div class="mono" style="font-size:0.72rem;
+                         color:var(--steel-bright);">
+                        ${fmtDT(customer.created_at)}
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Order history -->
+            <div class="panel-title"
+                 style="margin-bottom:0.75rem;font-size:0.78rem;">
+                <i class="fas fa-history" style="margin-right:6px;"></i>
+                Order History
+                <span class="mono text-dim"
+                      style="font-size:0.65rem;font-weight:400;
+                             margin-left:0.5rem;">
+                    (${orders.length} total)
+                </span>
+            </div>
+
+            ${orders.length ? `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Date</th>
+                        <th>Items</th>
+                    </tr>
+                </thead>
+                <tbody>${recentOrders}</tbody>
+            </table>
+            ${orders.length > 8
+                ? `<div class="mono text-dim"
+                        style="font-size:0.65rem;text-align:center;
+                               padding:0.5rem;">
+                       + ${orders.length - 8} more orders
+                   </div>`
+                : ''}` : `
+            <div class="empty-state" style="padding:1.5rem;">
+                <div class="empty-state-icon">
+                    <i class="fas fa-box-open"></i>
+                </div>
+                <div class="empty-state-text">No orders yet</div>
+            </div>`}`;
+
+        modal.style.display = 'flex';
+    } catch(e) { console.error('View customer error:', e); }
+}
+
+function closeModal() {
+    document.getElementById('customer-modal').style.display = 'none';
+}
+
+document.getElementById('customer-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+// ── WebSocket hooks ──────────────────────────────────
+function onNewOrder()       { loadCustomers(); }
+function onOrderFulfilled() { loadCustomers(); }
+
+// ── Auto-refresh every 30s ───────────────────────────
+setInterval(loadCustomers, 30000);
+
+// ── Boot ─────────────────────────────────────────────
+loadCustomers();
+</script>
+{% endblock %}
