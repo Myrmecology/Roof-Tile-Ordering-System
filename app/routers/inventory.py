@@ -20,6 +20,111 @@ router = APIRouter()
 
 
 # ============================================================
+# GET LOW STOCK ITEMS
+# ── Must be above /{item_id} to avoid route conflict ──
+# ============================================================
+@router.get("/alerts/low-stock", response_model=List[InventoryItemOut])
+async def get_low_stock(
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieve all inventory items at or below their reorder point."""
+    items = await crud.get_low_stock_items(db)
+    return items
+
+
+# ============================================================
+# GET TOP SELLERS
+# ── Must be above /{item_id} to avoid route conflict ──
+# ============================================================
+@router.get("/stats/top-sellers", response_model=List[InventoryItemOut])
+async def get_top_sellers(
+    limit: int          = 5,
+    db:    AsyncSession = Depends(get_db)
+):
+    """Retrieve the best selling inventory items by total units sold."""
+    items = await crud.get_top_sellers(db, limit=limit)
+    return items
+
+
+# ============================================================
+# GET SLOWEST SELLERS
+# ── Must be above /{item_id} to avoid route conflict ──
+# ============================================================
+@router.get("/stats/slowest-sellers", response_model=List[InventoryItemOut])
+async def get_slowest_sellers(
+    limit: int          = 5,
+    db:    AsyncSession = Depends(get_db)
+):
+    """Retrieve the slowest moving inventory items by total units sold."""
+    items = await crud.get_slowest_sellers(db, limit=limit)
+    return items
+
+
+# ============================================================
+# GET RESTOCK HISTORY
+# ── Must be above /{item_id} to avoid route conflict ──
+# ============================================================
+@router.get("/restock/history", response_model=List[RestockOrderOut])
+async def get_restock_history(
+    skip:  int          = 0,
+    limit: int          = 50,
+    db:    AsyncSession = Depends(get_db)
+):
+    """Retrieve the full history of all restock orders placed."""
+    restocks = await crud.get_restock_orders(db, skip=skip, limit=limit)
+    return restocks
+
+
+# ============================================================
+# PLACE A RESTOCK ORDER
+# ── Must be above /{item_id} to avoid route conflict ──
+# ============================================================
+@router.post("/restock", response_model=RestockOrderOut, status_code=status.HTTP_201_CREATED)
+async def place_restock_order(
+    data: RestockOrderCreate,
+    db:   AsyncSession = Depends(get_db)
+):
+    """
+    Place a restock order to replenish inventory.
+    Instantly adds stock, deducts cost from budget,
+    and broadcasts the event to all WebSocket clients.
+    """
+    budget = await crud.get_budget(db)
+    total_cost = sum(
+        item.quantity_ordered * item.unit_cost
+        for item in data.items
+    )
+
+    if budget.balance < total_cost:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Insufficient budget. "
+                   f"Required: ${total_cost:,.2f} — "
+                   f"Available: ${budget.balance:,.2f}"
+        )
+
+    restock = await crud.create_restock_order(db, data)
+
+    updated_budget = await crud.get_budget(db)
+
+    await manager.broadcast_restock_placed({
+        "restock_id":   restock.id,
+        "order_number": restock.order_number,
+        "total_cost":   restock.total_cost,
+        "item_count":   len(restock.items),
+        "status":       restock.status
+    })
+
+    await manager.broadcast_budget_update({
+        "balance":      updated_budget.balance,
+        "total_earned": updated_budget.total_earned,
+        "total_profit": updated_budget.total_profit
+    })
+
+    return restock
+
+
+# ============================================================
 # GET ALL INVENTORY
 # ============================================================
 @router.get("/", response_model=List[InventoryItemOut])
@@ -35,6 +140,7 @@ async def get_inventory(
 
 # ============================================================
 # GET SINGLE INVENTORY ITEM
+# ── After all named routes to prevent conflicts ──
 # ============================================================
 @router.get("/{item_id}", response_model=InventoryItemOut)
 async def get_inventory_item(
@@ -49,44 +155,6 @@ async def get_inventory_item(
             detail=f"Inventory item ID {item_id} not found."
         )
     return item
-
-
-# ============================================================
-# GET LOW STOCK ITEMS
-# ============================================================
-@router.get("/alerts/low-stock", response_model=List[InventoryItemOut])
-async def get_low_stock(
-    db: AsyncSession = Depends(get_db)
-):
-    """Retrieve all inventory items at or below their reorder point."""
-    items = await crud.get_low_stock_items(db)
-    return items
-
-
-# ============================================================
-# GET TOP SELLERS
-# ============================================================
-@router.get("/stats/top-sellers", response_model=List[InventoryItemOut])
-async def get_top_sellers(
-    limit: int          = 5,
-    db:    AsyncSession = Depends(get_db)
-):
-    """Retrieve the best selling inventory items by total units sold."""
-    items = await crud.get_top_sellers(db, limit=limit)
-    return items
-
-
-# ============================================================
-# GET SLOWEST SELLERS
-# ============================================================
-@router.get("/stats/slowest-sellers", response_model=List[InventoryItemOut])
-async def get_slowest_sellers(
-    limit: int          = 5,
-    db:    AsyncSession = Depends(get_db)
-):
-    """Retrieve the slowest moving inventory items by total units sold."""
-    items = await crud.get_slowest_sellers(db, limit=limit)
-    return items
 
 
 # ============================================================
@@ -120,8 +188,6 @@ async def update_inventory_item(
     """
     Update an inventory item's quantity, price,
     or reorder settings.
-    Broadcasts a low stock alert if quantity
-    drops at or below the reorder point.
     """
     item = await crud.update_inventory_item(db, item_id, data)
     if not item:
@@ -130,7 +196,6 @@ async def update_inventory_item(
             detail=f"Inventory item ID {item_id} not found."
         )
 
-    # Broadcast low stock alert if threshold crossed
     if item.quantity <= item.reorder_point:
         await manager.broadcast_low_stock({
             "item_id":       item.id,
@@ -141,69 +206,3 @@ async def update_inventory_item(
         })
 
     return item
-
-
-# ============================================================
-# PLACE A RESTOCK ORDER
-# ============================================================
-@router.post("/restock", response_model=RestockOrderOut, status_code=status.HTTP_201_CREATED)
-async def place_restock_order(
-    data: RestockOrderCreate,
-    db:   AsyncSession = Depends(get_db)
-):
-    """
-    Place a restock order to replenish inventory.
-    Instantly adds stock, deducts cost from budget,
-    and broadcasts the event to all WebSocket clients.
-    """
-    # Verify budget can cover the restock
-    budget = await crud.get_budget(db)
-    total_cost = sum(
-        item.quantity_ordered * item.unit_cost
-        for item in data.items
-    )
-
-    if budget.balance < total_cost:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient budget. "
-                   f"Required: ${total_cost:,.2f} — "
-                   f"Available: ${budget.balance:,.2f}"
-        )
-
-    restock = await crud.create_restock_order(db, data)
-
-    # Get refreshed budget after deduction
-    updated_budget = await crud.get_budget(db)
-
-    # Broadcast restock placed event
-    await manager.broadcast_restock_placed({
-        "restock_id":    restock.id,
-        "order_number":  restock.order_number,
-        "total_cost":    restock.total_cost,
-        "item_count":    len(restock.items),
-        "status":        restock.status
-    })
-
-    # Broadcast updated budget
-    await manager.broadcast_budget_update({
-        "balance":      updated_budget.balance,
-        "total_earned": updated_budget.total_earned,
-        "total_profit": updated_budget.total_profit
-    })
-
-    return restock
-
-
-# ============================================================
-# GET ALL RESTOCK ORDERS
-# ============================================================
-@router.get("/restock/history", response_model=List[RestockOrderOut])
-async def get_restock_history(
-    skip:  int          = 0,
-    limit: int          = 50,
-    db:    AsyncSession = Depends(get_db)
-):
-    """Retrieve the full history of all restock orders placed."""
-    restocks = await crud.get_restock_orders(db, skip=skip, limit=limit)
-    return restocks

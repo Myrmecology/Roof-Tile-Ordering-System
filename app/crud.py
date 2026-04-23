@@ -29,12 +29,12 @@ def utcnow():
 
 async def generate_order_number(db: AsyncSession, prefix: str = "ORD") -> str:
     result = await db.execute(select(func.count(Order.id)))
-    count = result.scalar() or 0
+    count  = result.scalar() or 0
     return f"{prefix}-{str(count + 1).zfill(6)}"
 
 async def generate_restock_number(db: AsyncSession) -> str:
     result = await db.execute(select(func.count(RestockOrder.id)))
-    count = result.scalar() or 0
+    count  = result.scalar() or 0
     return f"RST-{str(count + 1).zfill(6)}"
 
 
@@ -46,7 +46,7 @@ async def get_budget(db: AsyncSession) -> Budget:
     budget = result.scalar_one_or_none()
     if not budget:
         starting = float(os.getenv("STARTING_BUDGET", 50000.00))
-        budget = Budget(balance=starting)
+        budget   = Budget(balance=starting)
         db.add(budget)
         await db.commit()
         await db.refresh(budget)
@@ -65,7 +65,7 @@ async def update_budget(
         budget.balance      += amount
         budget.total_earned += amount
     elif transaction_type == "restock":
-        budget.balance    -= amount
+        budget.balance     -= amount
         budget.total_spent += amount
     elif transaction_type == "profit":
         budget.total_profit += amount
@@ -99,7 +99,10 @@ async def get_customers(
     )
     return result.scalars().all()
 
-async def get_customer(db: AsyncSession, customer_id: int) -> Optional[Customer]:
+async def get_customer(
+    db: AsyncSession,
+    customer_id: int
+) -> Optional[Customer]:
     result = await db.execute(
         select(Customer)
         .options(selectinload(Customer.orders))
@@ -107,13 +110,19 @@ async def get_customer(db: AsyncSession, customer_id: int) -> Optional[Customer]
     )
     return result.scalar_one_or_none()
 
-async def get_customer_by_email(db: AsyncSession, email: str) -> Optional[Customer]:
+async def get_customer_by_email(
+    db: AsyncSession,
+    email: str
+) -> Optional[Customer]:
     result = await db.execute(
         select(Customer).where(Customer.email == email)
     )
     return result.scalar_one_or_none()
 
-async def create_customer(db: AsyncSession, data: CustomerCreate) -> Customer:
+async def create_customer(
+    db: AsyncSession,
+    data: CustomerCreate
+) -> Customer:
     customer = Customer(**data.model_dump())
     db.add(customer)
     await db.commit()
@@ -134,7 +143,10 @@ async def update_customer(
     await db.refresh(customer)
     return customer
 
-async def get_top_customers(db: AsyncSession, limit: int = 10) -> List[Customer]:
+async def get_top_customers(
+    db: AsyncSession,
+    limit: int = 10
+) -> List[Customer]:
     result = await db.execute(
         select(Customer)
         .order_by(desc(Customer.total_spent))
@@ -202,18 +214,23 @@ async def update_inventory_item(
     await db.refresh(item)
     return item
 
-async def get_low_stock_items(db: AsyncSession) -> List[InventoryItem]:
+async def get_low_stock_items(
+    db: AsyncSession
+) -> List[InventoryItem]:
     result = await db.execute(
         select(InventoryItem)
         .where(
             InventoryItem.is_active == True,
-            InventoryItem.quantity <= InventoryItem.reorder_point
+            InventoryItem.quantity  <= InventoryItem.reorder_point
         )
         .order_by(InventoryItem.quantity)
     )
     return result.scalars().all()
 
-async def get_top_sellers(db: AsyncSession, limit: int = 5) -> List[InventoryItem]:
+async def get_top_sellers(
+    db: AsyncSession,
+    limit: int = 5
+) -> List[InventoryItem]:
     result = await db.execute(
         select(InventoryItem)
         .where(InventoryItem.is_active == True)
@@ -222,7 +239,10 @@ async def get_top_sellers(db: AsyncSession, limit: int = 5) -> List[InventoryIte
     )
     return result.scalars().all()
 
-async def get_slowest_sellers(db: AsyncSession, limit: int = 5) -> List[InventoryItem]:
+async def get_slowest_sellers(
+    db: AsyncSession,
+    limit: int = 5
+) -> List[InventoryItem]:
     result = await db.execute(
         select(InventoryItem)
         .where(InventoryItem.is_active == True)
@@ -245,7 +265,8 @@ async def get_orders(
         select(Order)
         .options(
             selectinload(Order.customer),
-            selectinload(Order.items).selectinload(OrderItem.inventory_item)
+            selectinload(Order.items)
+            .selectinload(OrderItem.inventory_item)
         )
         .order_by(desc(Order.created_at))
         .offset(skip)
@@ -256,18 +277,25 @@ async def get_orders(
     result = await db.execute(query)
     return result.scalars().all()
 
-async def get_order(db: AsyncSession, order_id: int) -> Optional[Order]:
+async def get_order(
+    db: AsyncSession,
+    order_id: int
+) -> Optional[Order]:
     result = await db.execute(
         select(Order)
         .options(
             selectinload(Order.customer),
-            selectinload(Order.items).selectinload(OrderItem.inventory_item)
+            selectinload(Order.items)
+            .selectinload(OrderItem.inventory_item)
         )
         .where(Order.id == order_id)
     )
     return result.scalar_one_or_none()
 
-async def create_order(db: AsyncSession, data: OrderCreate) -> Order:
+async def create_order(
+    db: AsyncSession,
+    data: OrderCreate
+) -> Order:
     order_number = await generate_order_number(db)
     order = Order(
         order_number=order_number,
@@ -297,7 +325,10 @@ async def create_order(db: AsyncSession, data: OrderCreate) -> Order:
     await db.refresh(order)
     return order
 
-async def fulfill_order(db: AsyncSession, order_id: int) -> Optional[Order]:
+async def fulfill_order(
+    db: AsyncSession,
+    order_id: int
+) -> Optional[Order]:
     order = await get_order(db, order_id)
     if not order or order.status != OrderStatus.PENDING:
         return None
@@ -308,15 +339,15 @@ async def fulfill_order(db: AsyncSession, order_id: int) -> Optional[Order]:
         if not inv:
             continue
 
-        fulfill_qty = min(item.quantity_ordered, inv.quantity)
+        fulfill_qty       = min(item.quantity_ordered, inv.quantity)
         item.quantity_fulfilled = fulfill_qty
-        item.line_total = fulfill_qty * item.unit_price
+        item.line_total   = fulfill_qty * item.unit_price
 
-        inv.quantity    -= fulfill_qty
-        inv.total_sold  += fulfill_qty
+        inv.quantity      -= fulfill_qty
+        inv.total_sold    += fulfill_qty
         inv.total_revenue += item.line_total
 
-        cost = fulfill_qty * inv.cost_price
+        cost          = fulfill_qty * inv.cost_price
         total_profit += (item.line_total - cost)
 
     order.status       = OrderStatus.FULFILLED
@@ -340,7 +371,10 @@ async def fulfill_order(db: AsyncSession, order_id: int) -> Optional[Order]:
     await db.refresh(order)
     return order
 
-async def cancel_order(db: AsyncSession, order_id: int) -> Optional[Order]:
+async def cancel_order(
+    db: AsyncSession,
+    order_id: int
+) -> Optional[Order]:
     order = await get_order(db, order_id)
     if not order or order.status != OrderStatus.PENDING:
         return None
@@ -349,10 +383,14 @@ async def cancel_order(db: AsyncSession, order_id: int) -> Optional[Order]:
     await db.refresh(order)
     return order
 
-async def get_pending_orders(db: AsyncSession) -> List[Order]:
+async def get_pending_orders(
+    db: AsyncSession
+) -> List[Order]:
     return await get_orders(db, status=OrderStatus.PENDING)
 
-async def get_orders_count_by_status(db: AsyncSession) -> dict:
+async def get_orders_count_by_status(
+    db: AsyncSession
+) -> dict:
     result = await db.execute(
         select(Order.status, func.count(Order.id))
         .group_by(Order.status)
@@ -395,7 +433,7 @@ async def create_restock_order(
 
     total_cost = 0.0
     for item_data in data.items:
-        line_total = item_data.quantity_ordered * item_data.unit_cost
+        line_total   = item_data.quantity_ordered * item_data.unit_cost
         restock_item = RestockItem(
             restock_order_id=restock.id,
             inventory_item_id=item_data.inventory_item_id,
@@ -422,15 +460,26 @@ async def create_restock_order(
     )
 
     await db.commit()
-    await db.refresh(restock)
-    return restock
+
+    # Re-fetch with all relationships eagerly loaded
+    result = await db.execute(
+        select(RestockOrder)
+        .options(
+            selectinload(RestockOrder.items)
+            .selectinload(RestockItem.inventory_item)
+        )
+        .where(RestockOrder.id == restock.id)
+    )
+    return result.scalar_one()
 
 
 # ============================================================
 # ANALYTICS CRUD
 # ============================================================
 async def get_analytics_summary(db: AsyncSession) -> dict:
-    total_orders_result = await db.execute(select(func.count(Order.id)))
+    total_orders_result = await db.execute(
+        select(func.count(Order.id))
+    )
     total_orders = total_orders_result.scalar() or 0
 
     pending_result = await db.execute(
@@ -457,7 +506,7 @@ async def get_analytics_summary(db: AsyncSession) -> dict:
     )
     total_profit = profit_result.scalar() or 0.0
 
-    top_sellers    = await get_top_sellers(db)
+    top_sellers     = await get_top_sellers(db)
     slowest_sellers = await get_slowest_sellers(db)
 
     return {
@@ -504,7 +553,9 @@ async def get_dashboard_summary(db: AsyncSession) -> dict:
 
     low_stock = await get_low_stock_items(db)
 
-    customers_result = await db.execute(select(func.count(Customer.id)))
+    customers_result = await db.execute(
+        select(func.count(Customer.id))
+    )
     total_customers = customers_result.scalar() or 0
 
     return {

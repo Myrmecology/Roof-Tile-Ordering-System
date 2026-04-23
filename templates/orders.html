@@ -24,14 +24,14 @@
 <div class="panel" style="margin-bottom:1rem;">
     <div class="panel-body" style="padding:0.75rem 1.25rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
         <span style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--steel-dim);">Filter:</span>
-        <button class="btn btn-primary btn-sm filter-btn active" data-status="all"     onclick="setFilter('all')">All</button>
-        <button class="btn btn-ghost  btn-sm filter-btn"        data-status="pending"  onclick="setFilter('pending')">
+        <button class="btn btn-primary btn-sm filter-btn active" data-status="all"      onclick="setFilter('all')">All</button>
+        <button class="btn btn-ghost  btn-sm filter-btn"         data-status="pending"  onclick="setFilter('pending')">
             <i class="fas fa-clock"></i> Pending
         </button>
-        <button class="btn btn-ghost  btn-sm filter-btn"        data-status="fulfilled" onclick="setFilter('fulfilled')">
+        <button class="btn btn-ghost  btn-sm filter-btn"         data-status="fulfilled" onclick="setFilter('fulfilled')">
             <i class="fas fa-check"></i> Fulfilled
         </button>
-        <button class="btn btn-ghost  btn-sm filter-btn"        data-status="cancelled" onclick="setFilter('cancelled')">
+        <button class="btn btn-ghost  btn-sm filter-btn"         data-status="cancelled" onclick="setFilter('cancelled')">
             <i class="fas fa-xmark"></i> Cancelled
         </button>
 
@@ -124,7 +124,6 @@
                 border-radius:4px;width:600px;max-width:95vw;max-height:85vh;
                 overflow-y:auto;position:relative;">
 
-        <!-- Modal top accent -->
         <div style="height:2px;background:linear-gradient(90deg,var(--amber-dim),var(--amber),transparent);"></div>
 
         <div style="padding:1.25rem;border-bottom:1px solid var(--border-dim);
@@ -138,9 +137,7 @@
             </button>
         </div>
 
-        <div id="modal-content" style="padding:1.25rem;">
-            <!-- Populated by JS -->
-        </div>
+        <div id="modal-content" style="padding:1.25rem;"></div>
 
         <div id="modal-actions" style="padding:1rem 1.25rem;border-top:1px solid var(--border-dim);
              display:flex;gap:0.5rem;justify-content:flex-end;">
@@ -157,49 +154,57 @@
 // ORDERS PAGE JAVASCRIPT
 // ═══════════════════════════════════════════════════════
 
-let allOrders    = [];
+let allOrders      = [];
 let filteredOrders = [];
-let currentFilter = 'all';
-let currentPage   = 0;
-const PAGE_SIZE   = 20;
+let currentFilter  = 'all';
+let currentPage    = 0;
+const PAGE_SIZE    = 20;
 
-const fmt$  = v => `$${parseFloat(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmt$  = v => '$' + parseFloat(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtDT = s => s ? new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
 
-// ── Load all orders ──────────────────────────────────
+// ── Status badge helper ───────────────────────────────
+function statusBadge(status) {
+    const map = {
+        pending:     '<span class="badge badge-pending">Pending</span>',
+        fulfilled:   '<span class="badge badge-fulfilled">Fulfilled</span>',
+        cancelled:   '<span class="badge badge-cancelled">Cancelled</span>',
+        backordered: '<span class="badge badge-backordered">Backorder</span>'
+    };
+    return map[status] || '<span class="badge">' + status + '</span>';
+}
+
+// ── Load all orders ───────────────────────────────────
 async function loadOrders() {
     try {
-        const res   = await fetch('/api/orders/?limit=200');
-        allOrders   = await res.json();
+        const res  = await fetch('/api/orders/?limit=200');
+        allOrders  = await res.json();
         applyFilterAndRender();
         loadOrderCounts();
     } catch(e) { console.error('Orders load error:', e); }
 }
 
-// ── Order status counts ──────────────────────────────
+// ── Order status counts ───────────────────────────────
 async function loadOrderCounts() {
     try {
         const res  = await fetch('/api/orders/stats/counts');
         const data = await res.json();
-        document.getElementById('header-pending-count').textContent   = `${data.pending   || 0} Pending`;
-        document.getElementById('header-fulfilled-count').textContent = `${data.fulfilled || 0} Fulfilled`;
-        document.getElementById('header-cancelled-count').textContent = `${data.cancelled || 0} Cancelled`;
+        document.getElementById('header-pending-count').textContent   = (data.pending   || 0) + ' Pending';
+        document.getElementById('header-fulfilled-count').textContent = (data.fulfilled || 0) + ' Fulfilled';
+        document.getElementById('header-cancelled-count').textContent = (data.cancelled || 0) + ' Cancelled';
         updatePendingBadge(data.pending || 0);
     } catch(e) {}
 }
 
-// ── Filter ───────────────────────────────────────────
+// ── Filter ────────────────────────────────────────────
 function setFilter(status) {
     currentFilter = status;
     currentPage   = 0;
-
     document.querySelectorAll('.filter-btn').forEach(btn => {
-        const isActive = btn.dataset.status === status;
-        btn.className  = isActive
+        btn.className = btn.dataset.status === status
             ? 'btn btn-primary btn-sm filter-btn active'
             : 'btn btn-ghost btn-sm filter-btn';
     });
-
     applyFilterAndRender();
 }
 
@@ -207,7 +212,6 @@ function applyFilterAndRender() {
     filteredOrders = currentFilter === 'all'
         ? [...allOrders]
         : allOrders.filter(o => o.status === currentFilter);
-
     applySortAndRender();
 }
 
@@ -225,85 +229,54 @@ function applySortAndRender() {
     renderTable();
 }
 
-// ── Render table ─────────────────────────────────────
+// ── Render table ──────────────────────────────────────
 function renderTable() {
-    const body    = document.getElementById('orders-table-body');
-    const total   = filteredOrders.length;
-    const start   = currentPage * PAGE_SIZE;
-    const end     = Math.min(start + PAGE_SIZE, total);
-    const page    = filteredOrders.slice(start, end);
+    const body  = document.getElementById('orders-table-body');
+    const total = filteredOrders.length;
+    const start = currentPage * PAGE_SIZE;
+    const end   = Math.min(start + PAGE_SIZE, total);
+    const page  = filteredOrders.slice(start, end);
 
-    document.getElementById('order-count-label').textContent =
-        `${total} order${total !== 1 ? 's' : ''}`;
-    document.getElementById('pagination-info').textContent =
-        total ? `Showing ${start+1}–${end} of ${total}` : 'No orders';
+    document.getElementById('order-count-label').textContent = total + ' order' + (total !== 1 ? 's' : '');
+    document.getElementById('pagination-info').textContent   = total ? 'Showing ' + (start+1) + '–' + end + ' of ' + total : 'No orders';
     document.getElementById('btn-prev').disabled = currentPage === 0;
     document.getElementById('btn-next').disabled = end >= total;
 
     if (!page.length) {
-        body.innerHTML = `
-            <tr><td colspan="9">
-                <div class="empty-state">
-                    <div class="empty-state-icon"><i class="fas fa-box-open"></i></div>
-                    <div class="empty-state-text">No orders found</div>
-                </div>
-            </td></tr>`;
+        body.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-box-open"></i></div><div class="empty-state-text">No orders found</div></div></td></tr>';
         return;
     }
 
     body.innerHTML = page.map(o => {
-        const statusBadge = {
-            pending:     `<span class="badge badge-pending">Pending</span>`,
-            fulfilled:   `<span class="badge badge-fulfilled">Fulfilled</span>`,
-            cancelled:   `<span class="badge badge-cancelled">Cancelled</span>`,
-            backordered: `<span class="badge badge-backordered">Backorder</span>`
-        }[o.status] || `<span class="badge">${o.status}</span>`;
-
-        const typeBadge = o.customer?.customer_type === 'company'
-            ? `<span class="badge badge-company">Co.</span>`
-            : `<span class="badge badge-individual">Ind.</span>`;
-
-        const actions = o.status === 'pending' ? `
-            <div style="display:flex;gap:4px;">
-                <button class="btn btn-success btn-sm" onclick="fulfillOrder(${o.id})">
-                    <i class="fas fa-check"></i>
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})">
-                    <i class="fas fa-xmark"></i>
-                </button>
-                <button class="btn btn-ghost btn-sm" onclick="viewOrder(${o.id})">
-                    <i class="fas fa-eye"></i>
-                </button>
-            </div>` : `
-            <button class="btn btn-ghost btn-sm" onclick="viewOrder(${o.id})">
-                <i class="fas fa-eye"></i> View
-            </button>`;
+        const typeBadge = o.customer && o.customer.customer_type === 'company'
+            ? '<span class="badge badge-company">Co.</span>'
+            : '<span class="badge badge-individual">Ind.</span>';
 
         const profitColor = o.profit > 0 ? 'var(--success)' : 'var(--steel-dim)';
 
-        return `
-        <tr id="order-row-${o.id}">
-            <td class="mono text-amber" style="font-size:0.78rem;font-weight:700;">
-                ${o.order_number}
-            </td>
-            <td>
-                <div style="font-size:0.82rem;font-weight:600;color:var(--steel-bright);">
-                    ${o.customer?.company_name || o.customer?.name || '—'}
-                </div>
-                <div style="font-size:0.66rem;color:var(--steel-dim);">
-                    ${o.customer?.name || ''}
-                </div>
-            </td>
-            <td>${typeBadge}</td>
-            <td class="mono text-dim" style="font-size:0.72rem;">${o.items?.length || 0} item(s)</td>
-            <td class="mono" style="color:var(--amber-bright);font-weight:700;">${fmt$(o.total_amount)}</td>
-            <td class="mono" style="color:${profitColor};">
-                ${o.profit > 0 ? fmt$(o.profit) : '—'}
-            </td>
-            <td>${statusBadge}</td>
-            <td class="mono text-dim" style="font-size:0.68rem;">${fmtDT(o.created_at)}</td>
-            <td>${actions}</td>
-        </tr>`;
+        const actions = o.status === 'pending'
+            ? '<div style="display:flex;gap:4px;">' +
+              '<button class="btn btn-success btn-sm" onclick="fulfillOrder(' + o.id + ')"><i class="fas fa-check"></i></button>' +
+              '<button class="btn btn-danger btn-sm"  onclick="cancelOrder('  + o.id + ')"><i class="fas fa-xmark"></i></button>' +
+              '<button class="btn btn-ghost btn-sm"   onclick="viewOrder('    + o.id + ')"><i class="fas fa-eye"></i></button>' +
+              '</div>'
+            : '<button class="btn btn-ghost btn-sm" onclick="viewOrder(' + o.id + ')"><i class="fas fa-eye"></i> View</button>';
+
+        return '<tr id="order-row-' + o.id + '">' +
+            '<td class="mono text-amber" style="font-size:0.78rem;font-weight:700;">' + o.order_number + '</td>' +
+            '<td><div style="font-size:0.82rem;font-weight:600;color:var(--steel-bright);">' +
+                (o.customer ? (o.customer.company_name || o.customer.name) : '—') +
+            '</div><div style="font-size:0.66rem;color:var(--steel-dim);">' +
+                (o.customer ? o.customer.name : '') +
+            '</div></td>' +
+            '<td>' + typeBadge + '</td>' +
+            '<td class="mono text-dim" style="font-size:0.72rem;">' + (o.items ? o.items.length : 0) + ' item(s)</td>' +
+            '<td class="mono" style="color:var(--amber-bright);font-weight:700;">' + fmt$(o.total_amount) + '</td>' +
+            '<td class="mono" style="color:' + profitColor + ';">' + (o.profit > 0 ? fmt$(o.profit) : '—') + '</td>' +
+            '<td>' + statusBadge(o.status) + '</td>' +
+            '<td class="mono text-dim" style="font-size:0.68rem;">' + fmtDT(o.created_at) + '</td>' +
+            '<td>' + actions + '</td>' +
+            '</tr>';
     }).join('');
 }
 
@@ -318,17 +291,14 @@ function changePage(dir) {
 // ── Fulfill single ────────────────────────────────────
 async function fulfillOrder(id) {
     try {
-        const res = await fetch(`/api/orders/${id}/fulfill`, { method: 'POST' });
+        const res = await fetch('/api/orders/' + id + '/fulfill', { method: 'POST' });
         if (!res.ok) {
             const err = await res.json();
             showToast('order_cancelled', 'Error', err.detail || 'Failed to fulfill.');
             return;
         }
-        const row = document.getElementById(`order-row-${id}`);
-        if (row) {
-            row.style.opacity    = '0.4';
-            row.style.transition = 'opacity 0.4s ease';
-        }
+        const row = document.getElementById('order-row-' + id);
+        if (row) { row.style.opacity = '0.4'; row.style.transition = 'opacity 0.4s ease'; }
         setTimeout(() => loadOrders(), 400);
     } catch(e) { console.error(e); }
 }
@@ -336,13 +306,10 @@ async function fulfillOrder(id) {
 // ── Cancel single ─────────────────────────────────────
 async function cancelOrder(id) {
     try {
-        const res = await fetch(`/api/orders/${id}/cancel`, { method: 'POST' });
+        const res = await fetch('/api/orders/' + id + '/cancel', { method: 'POST' });
         if (!res.ok) return;
-        const row = document.getElementById(`order-row-${id}`);
-        if (row) {
-            row.style.opacity    = '0.4';
-            row.style.transition = 'opacity 0.4s ease';
-        }
+        const row = document.getElementById('order-row-' + id);
+        if (row) { row.style.opacity = '0.4'; row.style.transition = 'opacity 0.4s ease'; }
         setTimeout(() => loadOrders(), 400);
     } catch(e) { console.error(e); }
 }
@@ -354,104 +321,86 @@ async function fulfillAllPending() {
         showToast('order_fulfilled', 'No Pending Orders', 'All orders are already fulfilled.');
         return;
     }
-    const btn = document.getElementById('fulfill-all-btn');
-    btn.disabled     = true;
-    btn.innerHTML    = `<div class="spinner"></div> Processing...`;
+    const btn     = document.getElementById('fulfill-all-btn');
+    btn.disabled  = true;
+    btn.innerHTML = '<div class="spinner"></div> Processing...';
 
     for (const order of pending) {
-        await fetch(`/api/orders/${order.id}/fulfill`, { method: 'POST' });
+        await fetch('/api/orders/' + order.id + '/fulfill', { method: 'POST' });
         await new Promise(r => setTimeout(r, 150));
     }
 
     btn.disabled  = false;
-    btn.innerHTML = `<i class="fas fa-check-double"></i> Fulfill All Pending`;
+    btn.innerHTML = '<i class="fas fa-check-double"></i> Fulfill All Pending';
     loadOrders();
-    showToast('order_fulfilled', 'All Done', `${pending.length} order(s) fulfilled.`);
+    showToast('order_fulfilled', 'All Done', pending.length + ' order(s) fulfilled.');
 }
 
 // ── View order detail modal ───────────────────────────
 async function viewOrder(id) {
     try {
-        const res   = await fetch(`/api/orders/${id}`);
+        const res   = await fetch('/api/orders/' + id);
         const order = await res.json();
-        const modal = document.getElementById('order-modal');
+        const modal   = document.getElementById('order-modal');
         const content = document.getElementById('modal-content');
         const actions = document.getElementById('modal-actions');
 
-        const itemRows = (order.items || []).map(i => `
-            <tr>
-                <td style="padding:0.5rem 0.75rem;">
-                    <div style="font-size:0.82rem;font-weight:600;color:var(--steel-bright);">
-                        ${i.inventory_item?.name || 'Unknown Item'}
-                    </div>
-                    <div class="mono text-dim" style="font-size:0.62rem;">${i.inventory_item?.sku || ''}</div>
-                </td>
-                <td style="padding:0.5rem 0.75rem;" class="mono text-dim">${i.quantity_ordered}</td>
-                <td style="padding:0.5rem 0.75rem;" class="mono text-amber">${fmt$(i.unit_price)}</td>
-                <td style="padding:0.5rem 0.75rem;" class="mono" style="color:var(--amber-bright);">${fmt$(i.line_total)}</td>
-            </tr>`).join('');
+        const itemRows = (order.items || []).map(i =>
+            '<tr>' +
+            '<td style="padding:0.5rem 0.75rem;"><div style="font-size:0.82rem;font-weight:600;color:var(--steel-bright);">' +
+                (i.inventory_item ? i.inventory_item.name : 'Unknown Item') +
+            '</div><div class="mono text-dim" style="font-size:0.62rem;">' +
+                (i.inventory_item ? i.inventory_item.sku : '') +
+            '</div></td>' +
+            '<td style="padding:0.5rem 0.75rem;" class="mono text-dim">' + i.quantity_ordered + '</td>' +
+            '<td style="padding:0.5rem 0.75rem;" class="mono text-amber">' + fmt$(i.unit_price) + '</td>' +
+            '<td style="padding:0.5rem 0.75rem;" class="mono" style="color:var(--amber-bright);">' + fmt$(i.line_total) + '</td>' +
+            '</tr>'
+        ).join('');
 
-        content.innerHTML = `
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-                <div>
-                    <div class="stat-label">Order Number</div>
-                    <div class="mono text-amber" style="font-size:1rem;font-weight:700;">${order.order_number}</div>
-                </div>
-                <div>
-                    <div class="stat-label">Status</div>
-                    <div>${{pending:`<span class="badge badge-pending">Pending</span>`,fulfilled:`<span class="badge badge-fulfilled">Fulfilled</span>`,cancelled:`<span class="badge badge-cancelled">Cancelled</span>`}[order.status] || order.status}</div>
-                </div>
-                <div>
-                    <div class="stat-label">Customer</div>
-                    <div style="font-size:0.9rem;font-weight:600;color:var(--steel-bright);">
-                        ${order.customer?.company_name || order.customer?.name || '—'}
-                    </div>
-                    <div class="mono text-dim" style="font-size:0.65rem;">${order.customer?.email || ''}</div>
-                </div>
-                <div>
-                    <div class="stat-label">Order Value</div>
-                    <div style="font-family:var(--font-display);font-size:1.4rem;font-weight:900;color:var(--amber-bright);">
-                        ${fmt$(order.total_amount)}
-                    </div>
-                </div>
-                <div>
-                    <div class="stat-label">Received</div>
-                    <div class="mono text-dim" style="font-size:0.75rem;">${fmtDT(order.created_at)}</div>
-                </div>
-                <div>
-                    <div class="stat-label">Profit</div>
-                    <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:800;
-                                color:${order.profit > 0 ? 'var(--success)' : 'var(--steel-dim)'};">
-                        ${order.profit > 0 ? fmt$(order.profit) : '—'}
-                    </div>
-                </div>
-            </div>
-            <div class="divider"></div>
-            <div class="panel-title" style="margin-bottom:0.75rem;font-size:0.78rem;">
-                <i class="fas fa-list" style="margin-right:6px;"></i> Order Items
-            </div>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Qty</th>
-                        <th>Unit Price</th>
-                        <th>Line Total</th>
-                    </tr>
-                </thead>
-                <tbody>${itemRows}</tbody>
-            </table>`;
+        content.innerHTML =
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">' +
+                '<div><div class="stat-label">Order Number</div>' +
+                '<div class="mono text-amber" style="font-size:1rem;font-weight:700;">' + order.order_number + '</div></div>' +
+                '<div><div class="stat-label">Status</div>' +
+                '<div>' + statusBadge(order.status) + '</div></div>' +
+                '<div><div class="stat-label">Customer</div>' +
+                '<div style="font-size:0.9rem;font-weight:600;color:var(--steel-bright);">' +
+                    (order.customer ? (order.customer.company_name || order.customer.name) : '—') +
+                '</div><div class="mono text-dim" style="font-size:0.65rem;">' +
+                    (order.customer ? order.customer.email : '') +
+                '</div></div>' +
+                '<div><div class="stat-label">Order Value</div>' +
+                '<div style="font-family:var(--font-display);font-size:1.4rem;font-weight:900;color:var(--amber-bright);">' +
+                    fmt$(order.total_amount) +
+                '</div></div>' +
+                '<div><div class="stat-label">Received</div>' +
+                '<div class="mono text-dim" style="font-size:0.75rem;">' + fmtDT(order.created_at) + '</div></div>' +
+                '<div><div class="stat-label">Profit</div>' +
+                '<div style="font-family:var(--font-display);font-size:1.1rem;font-weight:800;color:' +
+                    (order.profit > 0 ? 'var(--success)' : 'var(--steel-dim)') + ';">' +
+                    (order.profit > 0 ? fmt$(order.profit) : '—') +
+                '</div></div>' +
+            '</div>' +
+            '<div class="divider"></div>' +
+            '<div class="panel-title" style="margin-bottom:0.75rem;font-size:0.78rem;">' +
+                '<i class="fas fa-list" style="margin-right:6px;"></i> Order Items' +
+            '</div>' +
+            '<table class="data-table"><thead><tr>' +
+                '<th>Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th>' +
+            '</tr></thead><tbody>' + itemRows + '</tbody></table>';
 
-        actions.innerHTML = order.status === 'pending' ? `
-            <button class="btn btn-danger btn-sm" onclick="cancelOrder(${order.id});closeModal();">
-                <i class="fas fa-xmark"></i> Cancel
-            </button>
-            <button class="btn btn-success" onclick="fulfillOrder(${order.id});closeModal();">
-                <i class="fas fa-check"></i> Fulfill Order
-            </button>` : `
-            <button class="btn btn-ghost btn-sm" onclick="closeModal()">
-                <i class="fas fa-xmark"></i> Close
-            </button>`;
+        if (order.status === 'pending') {
+            actions.innerHTML =
+                '<button class="btn btn-danger btn-sm" onclick="cancelOrder(' + order.id + ');closeModal();">' +
+                '<i class="fas fa-xmark"></i> Cancel</button>' +
+                '<button class="btn btn-success" onclick="fulfillOrder(' + order.id + ');closeModal();">' +
+                '<i class="fas fa-check"></i> Fulfill Order</button>';
+        } else {
+            actions.innerHTML =
+                '<button class="btn btn-ghost btn-sm" onclick="closeModal()">' +
+                '<i class="fas fa-xmark"></i> Close</button>';
+        }
 
         modal.style.display = 'flex';
     } catch(e) { console.error('View order error:', e); }
@@ -461,20 +410,19 @@ function closeModal() {
     document.getElementById('order-modal').style.display = 'none';
 }
 
-// Close modal on backdrop click
 document.getElementById('order-modal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
 });
 
-// ── WebSocket hooks ──────────────────────────────────
+// ── WebSocket hooks ───────────────────────────────────
 function onNewOrder(payload)       { loadOrders(); }
 function onOrderFulfilled(payload) { loadOrders(); }
 function onOrderCancelled(payload) { loadOrders(); }
 
-// ── Auto-refresh every 15s ───────────────────────────
+// ── Auto-refresh every 15s ────────────────────────────
 setInterval(loadOrders, 15000);
 
-// ── Boot ─────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────
 loadOrders();
 </script>
 {% endblock %}

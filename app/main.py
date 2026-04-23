@@ -83,33 +83,23 @@ app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"]
 # ============================================================
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    return templates.TemplateResponse(
-        "dashboard.html", {"request": request}
-    )
+    return templates.TemplateResponse(request, "dashboard.html")
 
 @app.get("/orders", response_class=HTMLResponse)
 async def orders_page(request: Request):
-    return templates.TemplateResponse(
-        "orders.html", {"request": request}
-    )
+    return templates.TemplateResponse(request, "orders.html")
 
 @app.get("/inventory", response_class=HTMLResponse)
 async def inventory_page(request: Request):
-    return templates.TemplateResponse(
-        "inventory.html", {"request": request}
-    )
+    return templates.TemplateResponse(request, "inventory.html")
 
 @app.get("/customers", response_class=HTMLResponse)
 async def customers_page(request: Request):
-    return templates.TemplateResponse(
-        "customers.html", {"request": request}
-    )
+    return templates.TemplateResponse(request, "customers.html")
 
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_page(request: Request):
-    return templates.TemplateResponse(
-        "analytics.html", {"request": request}
-    )
+    return templates.TemplateResponse(request, "analytics.html")
 
 
 # ============================================================

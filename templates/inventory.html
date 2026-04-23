@@ -91,7 +91,7 @@
         <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem;">
             <span style="font-family:var(--font-mono);font-size:0.62rem;
                   color:var(--steel-dim);">SHOW:</span>
-            <button class="btn btn-ghost btn-sm" onclick="setStockFilter('all')"
+            <button class="btn btn-primary btn-sm" onclick="setStockFilter('all')"
                     id="show-all-btn">All Stock</button>
             <button class="btn btn-ghost btn-sm" onclick="setStockFilter('low')"
                     id="show-low-btn">
@@ -172,6 +172,7 @@
         </div>
 
         <div style="padding:1.25rem;">
+
             <!-- Budget display -->
             <div style="background:var(--bg-lift);border:1px solid var(--border-dim);
                         border-radius:3px;padding:0.75rem 1rem;margin-bottom:1rem;
@@ -191,7 +192,8 @@
                      color:var(--steel-dim);margin-bottom:0.5rem;">
                     Quick Add — Low Stock Items
                 </div>
-                <div id="quick-add-items" style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+                <div id="quick-add-items"
+                     style="display:flex;flex-wrap:wrap;gap:0.4rem;">
                     <span class="mono text-dim" style="font-size:0.7rem;">
                         Loading low stock items...
                     </span>
@@ -229,8 +231,8 @@
                            border-radius:3px;cursor:pointer;">
                     <option value="">— Select Item to Restock —</option>
                 </select>
-                <input type="number" id="restock-qty" placeholder="Qty"
-                       min="1" value="50"
+                <input type="number" id="restock-qty"
+                       placeholder="Qty" min="1" value="50"
                        style="background:var(--bg-lift);
                               border:1px solid var(--border-mid);
                               color:var(--steel-bright);
@@ -282,22 +284,22 @@
 // INVENTORY PAGE JAVASCRIPT
 // ═══════════════════════════════════════════════════════
 
-let allInventory   = [];
-let filteredInv    = [];
-let currentCat     = 'all';
-let stockFilter    = 'all';
-let restockItems   = [];
-let budgetBalance  = 0;
+let allInventory  = [];
+let filteredInv   = [];
+let currentCat    = 'all';
+let stockFilter   = 'all';
+let restockItems  = [];
+let budgetBalance = 0;
 
-const fmt$  = v => `$${parseFloat(v||0).toLocaleString('en-US',
-    {minimumFractionDigits:2,maximumFractionDigits:2})}`;
-const fmtN  = v => parseInt(v||0).toLocaleString();
+const fmt$ = v => '$' + parseFloat(v||0).toLocaleString('en-US',
+    {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtN = v => parseInt(v||0).toLocaleString();
 
-// ── Load inventory ───────────────────────────────────
+// ── Load inventory ────────────────────────────────────
 async function loadInventory() {
     try {
-        const res      = await fetch('/api/inventory/?limit=200');
-        allInventory   = await res.json();
+        const res    = await fetch('/api/inventory/?limit=200');
+        allInventory = await res.json();
         applyFilters();
         updateStats();
     } catch(e) { console.error('Inventory load error:', e); }
@@ -305,28 +307,19 @@ async function loadInventory() {
 
 // ── Update stat cards ─────────────────────────────────
 function updateStats() {
-    const lowStock = allInventory.filter(
-        i => i.quantity <= i.reorder_point
-    );
-    const topSeller = [...allInventory].sort(
-        (a,b) => b.total_sold - a.total_sold
-    )[0];
+    const lowStock  = allInventory.filter(i => i.quantity <= i.reorder_point);
+    const topSeller = [...allInventory].sort((a,b) => b.total_sold - a.total_sold)[0];
     const totalValue = allInventory.reduce(
         (sum, i) => sum + (i.quantity * i.sell_price), 0
     );
 
-    document.getElementById('stat-total-skus').textContent =
-        fmtN(allInventory.length);
-    document.getElementById('stat-low-stock').textContent =
-        fmtN(lowStock.length);
-    document.getElementById('stat-inv-value').textContent =
-        fmt$(totalValue);
+    document.getElementById('stat-total-skus').textContent = fmtN(allInventory.length);
+    document.getElementById('stat-low-stock').textContent  = fmtN(lowStock.length);
+    document.getElementById('stat-inv-value').textContent  = fmt$(totalValue);
 
     if (topSeller) {
-        document.getElementById('stat-top-seller').textContent =
-            topSeller.name;
-        document.getElementById('stat-top-seller-units').textContent =
-            `${fmtN(topSeller.total_sold)} units sold`;
+        document.getElementById('stat-top-seller').textContent       = topSeller.name;
+        document.getElementById('stat-top-seller-units').textContent = fmtN(topSeller.total_sold) + ' units sold';
     }
 }
 
@@ -344,20 +337,18 @@ function setCategory(cat) {
 // ── Stock filter ──────────────────────────────────────
 function setStockFilter(filter) {
     stockFilter = filter;
-    document.getElementById('show-all-btn').className =
-        filter === 'all'
-            ? 'btn btn-primary btn-sm'
-            : 'btn btn-ghost btn-sm';
-    document.getElementById('show-low-btn').className =
-        filter === 'low'
-            ? 'btn btn-primary btn-sm'
-            : 'btn btn-ghost btn-sm';
+    document.getElementById('show-all-btn').className = filter === 'all'
+        ? 'btn btn-primary btn-sm'
+        : 'btn btn-ghost btn-sm';
+    document.getElementById('show-low-btn').className = filter === 'low'
+        ? 'btn btn-primary btn-sm'
+        : 'btn btn-ghost btn-sm';
     applyFilters();
 }
 
 function applyFilters() {
     filteredInv = allInventory.filter(item => {
-        const catMatch  = currentCat === 'all' || item.category === currentCat;
+        const catMatch   = currentCat === 'all' || item.category === currentCat;
         const stockMatch = stockFilter === 'all'
             || (stockFilter === 'low' && item.quantity <= item.reorder_point);
         return catMatch && stockMatch;
@@ -369,20 +360,25 @@ function applyFilters() {
 function renderInventoryTable() {
     const body = document.getElementById('inventory-table-body');
     document.getElementById('inv-count-label').textContent =
-        `${filteredInv.length} item(s)`;
+        filteredInv.length + ' item(s)';
 
     if (!filteredInv.length) {
-        body.innerHTML = `
-            <tr><td colspan="13">
-                <div class="empty-state">
-                    <div class="empty-state-icon">
-                        <i class="fas fa-box-open"></i>
-                    </div>
-                    <div class="empty-state-text">No items found</div>
-                </div>
-            </td></tr>`;
+        body.innerHTML =
+            '<tr><td colspan="13"><div class="empty-state">' +
+            '<div class="empty-state-icon"><i class="fas fa-box-open"></i></div>' +
+            '<div class="empty-state-text">No items found</div>' +
+            '</div></td></tr>';
         return;
     }
+
+    const catColors = {
+        shingles:     '#60A5FA',
+        tar:          '#A78BFA',
+        gloves:       '#34D399',
+        underlayment: '#F472B6',
+        nails:        '#FBBF24',
+        tools:        '#94A3B8'
+    };
 
     body.innerHTML = filteredInv.map(item => {
         const isLow    = item.quantity <= item.reorder_point;
@@ -393,88 +389,55 @@ function renderInventoryTable() {
 
         const stockColor = isCrit
             ? 'var(--hazard)'
-            : isLow
-                ? 'var(--amber)'
-                : 'var(--success)';
+            : isLow ? 'var(--amber)' : 'var(--success)';
 
         const statusBadge = isCrit
-            ? `<span class="badge badge-low-stock low-stock-pulse">Critical</span>`
+            ? '<span class="badge badge-low-stock low-stock-pulse">Critical</span>'
             : isLow
-                ? `<span class="badge badge-low-stock">Low Stock</span>`
-                : `<span class="badge badge-ok">In Stock</span>`;
+                ? '<span class="badge badge-low-stock">Low Stock</span>'
+                : '<span class="badge badge-ok">In Stock</span>';
 
-        const catColors = {
-            shingles:     '#60A5FA',
-            tar:          '#A78BFA',
-            gloves:       '#34D399',
-            underlayment: '#F472B6',
-            nails:        '#FBBF24',
-            tools:        '#94A3B8'
-        };
         const catColor = catColors[item.category] || 'var(--steel)';
 
-        return `
-        <tr id="inv-row-${item.id}">
-            <td class="mono" style="font-size:0.68rem;color:var(--steel-dim);">
-                ${item.sku}
-            </td>
-            <td>
-                <div style="font-size:0.82rem;font-weight:600;
-                            color:var(--steel-bright);">${item.name}</div>
-            </td>
-            <td>
-                <span style="font-family:var(--font-mono);font-size:0.6rem;
-                      letter-spacing:0.1em;text-transform:uppercase;
-                      color:${catColor};background:${catColor}18;
-                      padding:2px 7px;border-radius:2px;
-                      border:1px solid ${catColor}40;">
-                    ${item.category}
-                </span>
-            </td>
-            <td class="mono text-dim" style="font-size:0.72rem;">${item.unit}</td>
-            <td>
-                <span style="font-family:var(--font-display);font-size:1.1rem;
-                      font-weight:800;color:${stockColor};">
-                    ${fmtN(item.quantity)}
-                </span>
-            </td>
-            <td class="mono text-dim" style="font-size:0.72rem;">
-                ${fmtN(item.reorder_point)}
-            </td>
-            <td class="mono" style="font-size:0.78rem;color:var(--steel);">
-                ${fmt$(item.cost_price)}
-            </td>
-            <td class="mono" style="font-size:0.78rem;color:var(--amber);">
-                ${fmt$(item.sell_price)}
-            </td>
-            <td class="mono" style="font-size:0.78rem;color:var(--success);">
-                ${margin}%
-            </td>
-            <td class="mono" style="font-size:0.78rem;color:var(--steel-bright);">
-                ${fmtN(item.total_sold)}
-            </td>
-            <td class="mono" style="font-size:0.78rem;color:var(--success);">
-                ${fmt$(item.total_revenue)}
-            </td>
-            <td>${statusBadge}</td>
-            <td>
-                <button class="btn btn-ghost btn-sm"
-                        onclick="quickRestock(${item.id},'${item.name}',
-                                 ${item.cost_price},'${item.unit}')">
-                    <i class="fas fa-cart-plus"></i>
-                </button>
-            </td>
-        </tr>`;
+        return '<tr id="inv-row-' + item.id + '">' +
+            '<td class="mono" style="font-size:0.68rem;color:var(--steel-dim);">' + item.sku + '</td>' +
+            '<td><div style="font-size:0.82rem;font-weight:600;color:var(--steel-bright);">' + item.name + '</div></td>' +
+            '<td><span style="font-family:var(--font-mono);font-size:0.6rem;letter-spacing:0.1em;' +
+                'text-transform:uppercase;color:' + catColor + ';background:' + catColor + '18;' +
+                'padding:2px 7px;border-radius:2px;border:1px solid ' + catColor + '40;">' +
+                item.category + '</span></td>' +
+            '<td class="mono text-dim" style="font-size:0.72rem;">' + item.unit + '</td>' +
+            '<td><span style="font-family:var(--font-display);font-size:1.1rem;font-weight:800;color:' +
+                stockColor + ';">' + fmtN(item.quantity) + '</span></td>' +
+            '<td class="mono text-dim" style="font-size:0.72rem;">' + fmtN(item.reorder_point) + '</td>' +
+            '<td class="mono" style="font-size:0.78rem;color:var(--steel);">' + fmt$(item.cost_price) + '</td>' +
+            '<td class="mono" style="font-size:0.78rem;color:var(--amber);">' + fmt$(item.sell_price) + '</td>' +
+            '<td class="mono" style="font-size:0.78rem;color:var(--success);">' + margin + '%</td>' +
+            '<td class="mono" style="font-size:0.78rem;color:var(--steel-bright);">' + fmtN(item.total_sold) + '</td>' +
+            '<td class="mono" style="font-size:0.78rem;color:var(--success);">' + fmt$(item.total_revenue) + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td><button class="btn btn-ghost btn-sm" ' +
+                'onclick="quickRestock(' + item.id + ',\'' + item.name.replace(/'/g, "\\'") + '\',' +
+                item.cost_price + ',\'' + item.unit + '\')">' +
+                '<i class="fas fa-cart-plus"></i></button></td>' +
+            '</tr>';
     }).join('');
 }
+
 
 // ══════════════════════════════════════════════════════
 // RESTOCK MODAL
 // ══════════════════════════════════════════════════════
+
 async function openRestockModal() {
-    restockItems = [];
+    // Reset state
+    restockItems  = [];
+    budgetBalance = 0;
     renderRestockItems();
     updateRestockTotal();
+
+    // Show modal immediately so user sees it opening
+    document.getElementById('restock-modal').style.display = 'flex';
 
     // Load budget
     try {
@@ -482,73 +445,95 @@ async function openRestockModal() {
         const data = await res.json();
         budgetBalance = data.balance;
         document.getElementById('restock-budget').textContent = fmt$(data.balance);
-    } catch(e) {}
+    } catch(e) {
+        console.error('Budget load error:', e);
+        document.getElementById('restock-budget').textContent = 'Error loading';
+    }
 
-    // Load low stock for quick add
+    // Load low stock quick-add buttons
     try {
         const res  = await fetch('/api/inventory/alerts/low-stock');
         const low  = await res.json();
         const container = document.getElementById('quick-add-items');
-        if (!low.length) {
-            container.innerHTML = `
-                <span class="mono text-dim" style="font-size:0.7rem;">
-                    No low stock items
-                </span>`;
-        } else {
-            container.innerHTML = low.map(item => `
-                <button class="btn btn-ghost btn-sm"
-                        onclick="quickRestock(${item.id},'${item.name}',
-                                 ${item.cost_price},'${item.unit}')"
-                        style="font-size:0.65rem;">
-                    <i class="fas fa-plus"></i>
-                    ${item.name}
-                    <span style="color:var(--hazard);margin-left:3px;">
-                        (${item.quantity} left)
-                    </span>
-                </button>`).join('');
-        }
-    } catch(e) {}
 
-    // Populate item select
+        if (!low.length) {
+            container.innerHTML =
+                '<span class="mono text-dim" style="font-size:0.7rem;">No low stock items</span>';
+        } else {
+            container.innerHTML = low.map(item =>
+                '<button class="btn btn-ghost btn-sm" style="font-size:0.65rem;" ' +
+                'onclick="addQuickItem(' + item.id + ',\'' + item.name.replace(/'/g, "\\'") + '\',' +
+                item.cost_price + ',\'' + item.unit + '\',' + item.quantity + ')">' +
+                '<i class="fas fa-plus"></i> ' + item.name +
+                ' <span style="color:var(--hazard);margin-left:3px;">(' + item.quantity + ' left)</span>' +
+                '</button>'
+            ).join('');
+        }
+    } catch(e) { console.error('Low stock load error:', e); }
+
+    // Populate item select dropdown
     const select = document.getElementById('restock-item-select');
-    select.innerHTML = '<option value="">— Select Item to Restock —</option>'
-        + allInventory.map(i =>
-            `<option value="${i.id}" data-cost="${i.cost_price}"
-                     data-unit="${i.unit}">${i.name} (${i.sku})</option>`
+    select.innerHTML = '<option value="">— Select Item to Restock —</option>' +
+        allInventory.map(i =>
+            '<option value="' + i.id + '" data-cost="' + i.cost_price +
+            '" data-unit="' + i.unit + '">' + i.name + ' (' + i.sku + ')</option>'
         ).join('');
 
-    // Show unit cost on select change
+    // Show unit cost when item selected
     select.onchange = () => {
-        const opt = select.options[select.selectedIndex];
+        const opt  = select.options[select.selectedIndex];
         const cost = opt.dataset.cost || 0;
         document.getElementById('restock-unit-cost').textContent =
-            cost > 0 ? `@ ${fmt$(cost)}/unit` : '@ $—/unit';
+            cost > 0 ? '@ ' + fmt$(cost) + '/unit' : '@ $—/unit';
     };
-
-    document.getElementById('restock-modal').style.display = 'flex';
 }
 
 function closeRestockModal() {
     document.getElementById('restock-modal').style.display = 'none';
+    restockItems = [];
 }
 
-function quickRestock(id, name, cost, unit) {
+// ── Quick add from low stock buttons ─────────────────
+function addQuickItem(id, name, cost, unit, currentQty) {
     const existing = restockItems.find(i => i.inventory_item_id === id);
     if (existing) {
         existing.quantity_ordered += 50;
     } else {
         restockItems.push({
             inventory_item_id: id,
-            name, unit,
+            name:              name,
+            unit:              unit,
             quantity_ordered:  50,
-            unit_cost: cost
+            unit_cost:         cost
         });
     }
     renderRestockItems();
     updateRestockTotal();
-    document.getElementById('restock-modal').style.display = 'flex';
 }
 
+// ── Quick restock from table row cart button ──────────
+async function quickRestock(id, name, cost, unit) {
+    // Open modal and load budget first
+    await openRestockModal();
+
+    // Then add the item
+    const existing = restockItems.find(i => i.inventory_item_id === id);
+    if (existing) {
+        existing.quantity_ordered += 50;
+    } else {
+        restockItems.push({
+            inventory_item_id: id,
+            name:              name,
+            unit:              unit,
+            quantity_ordered:  50,
+            unit_cost:         cost
+        });
+    }
+    renderRestockItems();
+    updateRestockTotal();
+}
+
+// ── Add item from dropdown ────────────────────────────
 function addRestockItem() {
     const select = document.getElementById('restock-item-select');
     const qty    = parseInt(document.getElementById('restock-qty').value) || 50;
@@ -571,9 +556,10 @@ function addRestockItem() {
     } else {
         restockItems.push({
             inventory_item_id: id,
-            name, unit,
-            quantity_ordered: qty,
-            unit_cost: cost
+            name:              name,
+            unit:              unit,
+            quantity_ordered:  qty,
+            unit_cost:         cost
         });
     }
 
@@ -583,56 +569,14 @@ function addRestockItem() {
     updateRestockTotal();
 }
 
+// ── Remove item ───────────────────────────────────────
 function removeRestockItem(idx) {
     restockItems.splice(idx, 1);
     renderRestockItems();
     updateRestockTotal();
 }
 
-function renderRestockItems() {
-    const list = document.getElementById('restock-items-list');
-    if (!restockItems.length) {
-        list.innerHTML = `
-            <div class="empty-state" style="padding:1rem;">
-                <div class="empty-state-text">
-                    Add items below or use Quick Add above
-                </div>
-            </div>`;
-        return;
-    }
-    list.innerHTML = restockItems.map((item, i) => `
-        <div style="display:grid;grid-template-columns:1fr auto auto auto;
-                    gap:0.75rem;align-items:center;
-                    background:var(--bg-lift);
-                    border:1px solid var(--border-dim);
-                    border-radius:3px;padding:0.6rem 0.85rem;">
-            <div>
-                <div style="font-size:0.82rem;font-weight:600;
-                            color:var(--steel-bright);">${item.name}</div>
-                <div class="mono text-dim" style="font-size:0.62rem;">
-                    ${fmt$(item.unit_cost)}/unit
-                </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:0.4rem;">
-                <button class="btn btn-ghost btn-sm" style="padding:2px 6px;"
-                        onclick="changeRestockQty(${i},-10)">−</button>
-                <span class="mono" style="font-size:0.82rem;
-                      color:var(--amber);min-width:40px;text-align:center;">
-                    ${item.quantity_ordered}
-                </span>
-                <button class="btn btn-ghost btn-sm" style="padding:2px 6px;"
-                        onclick="changeRestockQty(${i},10)">+</button>
-            </div>
-            <span class="mono" style="font-size:0.82rem;color:var(--success);">
-                ${fmt$(item.quantity_ordered * item.unit_cost)}
-            </span>
-            <button class="btn btn-danger btn-sm"
-                    onclick="removeRestockItem(${i})">
-                <i class="fas fa-xmark"></i>
-            </button>
-        </div>`).join('');
-}
-
+// ── Change quantity ───────────────────────────────────
 function changeRestockQty(idx, delta) {
     restockItems[idx].quantity_ordered =
         Math.max(1, restockItems[idx].quantity_ordered + delta);
@@ -640,17 +584,58 @@ function changeRestockQty(idx, delta) {
     updateRestockTotal();
 }
 
+// ── Render restock items list ─────────────────────────
+function renderRestockItems() {
+    const list = document.getElementById('restock-items-list');
+    if (!restockItems.length) {
+        list.innerHTML =
+            '<div class="empty-state" style="padding:1rem;">' +
+            '<div class="empty-state-text">Add items below or use Quick Add above</div>' +
+            '</div>';
+        return;
+    }
+
+    list.innerHTML = restockItems.map((item, i) =>
+        '<div style="display:grid;grid-template-columns:1fr auto auto auto;' +
+        'gap:0.75rem;align-items:center;background:var(--bg-lift);' +
+        'border:1px solid var(--border-dim);border-radius:3px;padding:0.6rem 0.85rem;">' +
+
+        '<div><div style="font-size:0.82rem;font-weight:600;color:var(--steel-bright);">' +
+        item.name + '</div>' +
+        '<div class="mono text-dim" style="font-size:0.62rem;">' +
+        fmt$(item.unit_cost) + '/unit</div></div>' +
+
+        '<div style="display:flex;align-items:center;gap:0.4rem;">' +
+        '<button class="btn btn-ghost btn-sm" style="padding:2px 6px;" ' +
+        'onclick="changeRestockQty(' + i + ',-10)">−</button>' +
+        '<span class="mono" style="font-size:0.82rem;color:var(--amber);' +
+        'min-width:40px;text-align:center;">' + item.quantity_ordered + '</span>' +
+        '<button class="btn btn-ghost btn-sm" style="padding:2px 6px;" ' +
+        'onclick="changeRestockQty(' + i + ',10)">+</button>' +
+        '</div>' +
+
+        '<span class="mono" style="font-size:0.82rem;color:var(--success);">' +
+        fmt$(item.quantity_ordered * item.unit_cost) + '</span>' +
+
+        '<button class="btn btn-danger btn-sm" onclick="removeRestockItem(' + i + ')">' +
+        '<i class="fas fa-xmark"></i></button>' +
+        '</div>'
+    ).join('');
+}
+
+// ── Update restock total ──────────────────────────────
 function updateRestockTotal() {
     const total = restockItems.reduce(
         (sum, i) => sum + (i.quantity_ordered * i.unit_cost), 0
     );
     const el = document.getElementById('restock-total');
     el.textContent = fmt$(total);
-    el.style.color = total > budgetBalance
+    el.style.color = total > budgetBalance && budgetBalance > 0
         ? 'var(--hazard)'
         : 'var(--amber-bright)';
 }
 
+// ── Submit restock order ──────────────────────────────
 async function submitRestock() {
     if (!restockItems.length) {
         showToast('order_cancelled', 'Empty Order',
@@ -661,15 +646,16 @@ async function submitRestock() {
     const total = restockItems.reduce(
         (sum, i) => sum + (i.quantity_ordered * i.unit_cost), 0
     );
-    if (total > budgetBalance) {
+
+    if (budgetBalance > 0 && total > budgetBalance) {
         showToast('order_cancelled', 'Insufficient Budget',
-                  `Need ${fmt$(total)} — Available ${fmt$(budgetBalance)}`);
+                  'Need ' + fmt$(total) + ' — Available ' + fmt$(budgetBalance));
         return;
     }
 
-    const btn = document.getElementById('submit-restock-btn');
+    const btn     = document.getElementById('submit-restock-btn');
     btn.disabled  = true;
-    btn.innerHTML = `<div class="spinner"></div> Submitting...`;
+    btn.innerHTML = '<div class="spinner"></div> Submitting...';
 
     try {
         const payload = {
@@ -687,30 +673,34 @@ async function submitRestock() {
         });
 
         if (!res.ok) {
-            const err = await res.json();
+            const err = await res.json().catch(() => ({}));
             showToast('order_cancelled', 'Restock Failed',
-                      err.detail || 'Unknown error.');
+                      err.detail || 'Server error — check terminal.');
         } else {
+            const data = await res.json();
+            showToast('restock_placed', 'Restock Placed',
+                      'Order ' + data.order_number + ' — ' + fmt$(data.total_cost));
             closeRestockModal();
             loadInventory();
         }
     } catch(e) {
-        showToast('order_cancelled', 'Error', 'Request failed.');
+        console.error('Restock error:', e);
+        showToast('order_cancelled', 'Error', e.message || 'Request failed.');
     }
 
     btn.disabled  = false;
-    btn.innerHTML = `<i class="fas fa-cart-plus"></i> Submit Restock Order`;
+    btn.innerHTML = '<i class="fas fa-cart-plus"></i> Submit Restock Order';
 }
 
-// ── WebSocket hooks ──────────────────────────────────
+// ── WebSocket hooks ───────────────────────────────────
 function onLowStock()       { loadInventory(); }
 function onRestockPlaced()  { loadInventory(); }
 function onOrderFulfilled() { loadInventory(); }
 
-// ── Auto-refresh every 20s ───────────────────────────
+// ── Auto-refresh every 20s ────────────────────────────
 setInterval(loadInventory, 20000);
 
-// ── Boot ─────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────
 loadInventory();
 </script>
 {% endblock %}
